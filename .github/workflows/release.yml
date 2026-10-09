@@ -1,0 +1,79 @@
+# Release pública do SDK: Maven Central (Android, JVM, iOS klibs) + XCFramework para o Swift Package Manager.
+# Rodar em Actions → Release → Run workflow, informando a versão que já está no libs.versions.toml.
+# Depois do upload, a versão fica aguardando o "Publish" em central.sonatype.com → Deployments.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão a publicar (igual ao bonifiq-sdk do libs.versions.toml, ex.: 0.3.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Um único host (macOS) publica todos os alvos: o Central recusa a mesma versão enviada de duas máquinas,
+    # e o XCFramework só é gerado no macOS.
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir a versão
+        run: |
+          set -euo pipefail
+          grep -q "^bonifiq-sdk = \"$VERSION\"$" gradle/libs.versions.toml \
+            || { echo "gradle/libs.versions.toml não está em $VERSION"; exit 1; }
+          grep -q "VERSION: String = \"$VERSION\"" bonifiq-core/src/commonMain/kotlin/br/com/bonifiq/sdk/BonifiQ.kt \
+            || { echo "BonifiQ.VERSION não está em $VERSION"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null; then
+            echo "A tag $VERSION já existe"; exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Testes
+        run: ./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest --stacktrace
+
+      - name: Publicar no Maven Central (aguarda o "Publish" no portal)
+        run: ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace
+
+      - name: Gerar o XCFramework
+        run: |
+          set -euo pipefail
+          ./gradlew :bonifiq-ui:assembleBonifiQReleaseXCFramework --stacktrace
+          cd bonifiq-ui/build/XCFrameworks/release
+          ditto -c -k --sequesterRsrc --keepParent BonifiQ.xcframework "$GITHUB_WORKSPACE/BonifiQ.xcframework.zip"
+
+      - name: Atualizar o Package.swift, commitar e criar a tag
+        run: |
+          set -euo pipefail
+          CHECKSUM=$(swift package compute-checksum BonifiQ.xcframework.zip)
+          URL="https://github.com/bonifiq/bonifiq-sdk/releases/download/$VERSION/BonifiQ.xcframework.zip"
+          sed -i '' -E "s#url: \"[^\"]+\"#url: \"$URL\"#; s#checksum: \"[^\"]+\"#checksum: \"$CHECKSUM\"#" Package.swift
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "release: $VERSION"
+          git tag "$VERSION"
+          git push origin HEAD:main "$VERSION"
+
+      - name: Release no GitHub com o XCFramework
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$VERSION" BonifiQ.xcframework.zip --title "$VERSION" --generate-notes

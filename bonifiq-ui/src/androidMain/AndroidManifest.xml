@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- Abre o login de terceiros (app do provedor ou Custom Tab) e recebe o retorno. Fica por baixo da Custom Tab
+             para que o retorno a feche (CLEAR_TOP), como no AppAuth. -->
+        <activity
+            android:name="br.com.bonifiq.sdk.ui.web.auth.BonifiQAuthActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Recebe bq.<applicationId>://... vindo do navegador ou do app do provedor. O esquema leva o
+             applicationId do app host, então cada app só recebe o próprio retorno. -->
+        <activity
+            android:name="br.com.bonifiq.sdk.ui.web.auth.BonifiQAuthRedirectActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bq.${applicationId}" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
