@@ -67,6 +67,21 @@ internal class HealthConnectSource(contextProvider: () -> Context) : HealthSourc
             start(Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS))
     }
 
+    override fun installedHealthApps(): List<HealthApp> = HealthAppCatalog.apps.filter { isInstalled(it.appId) }
+
+    override fun openHealthApp(appId: String): Boolean {
+        val launch = context.packageManager.getLaunchIntentForPackage(appId) ?: return false
+        return start(launch)
+    }
+
+    /** Os pacotes do catálogo estão em <queries> no manifest do módulo (visibilidade de pacotes, Android 11+). */
+    private fun isInstalled(packageName: String): Boolean = try {
+        context.packageManager.getPackageInfo(packageName, 0)
+        true
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
+    }
+
     private fun start(intent: Intent): Boolean = try {
         FitnessAndroid.startActivity(intent)
         true
@@ -184,7 +199,7 @@ internal class HealthConnectSource(contextProvider: () -> Context) : HealthSourc
 
     private fun sourceOf(packageName: String, device: Device?): FitnessSource = FitnessSource(
         appId = packageName,
-        appName = appLabel(packageName) ?: KnownHealthApps.nameOf(packageName),
+        appName = appLabel(packageName) ?: HealthAppCatalog.nameOf(packageName),
         device = device?.let {
             FitnessDevice(type = deviceTypeOf(it.type), manufacturer = it.manufacturer, model = it.model)
         },
@@ -257,25 +272,3 @@ private fun Instant.toJavaInstant(): java.time.Instant =
     java.time.Instant.ofEpochSecond(epochSeconds, nanosecondsOfSecond.toLong())
 
 private fun java.time.Instant.toKotlinInstant(): Instant = Instant.fromEpochSeconds(epochSecond, nano)
-
-/** Nomes dos apps de saúde mais comuns, para quando o Android não deixa ler o nome do pacote. */
-internal object KnownHealthApps {
-    private val names = mapOf(
-        "com.sec.android.app.shealth" to "Samsung Health",
-        "com.fitbit.FitbitMobile" to "Fitbit",
-        "com.xiaomi.wearable" to "Mi Fitness",
-        "com.xiaomi.hm.health" to "Zepp Life",
-        "com.huami.watch.hmwatchmanager" to "Zepp",
-        "com.garmin.android.apps.connectmobile" to "Garmin Connect",
-        "com.google.android.apps.fitness" to "Google Fit",
-        "com.google.android.apps.healthdata" to "Health Connect",
-        "com.strava" to "Strava",
-        "com.nike.plusgps" to "Nike Run Club",
-        "com.runtastic.android" to "adidas Running",
-        "com.ouraring.oura" to "Oura",
-        "fi.polar.polarflow" to "Polar Flow",
-        "com.withings.wiscale2" to "Withings",
-    )
-
-    fun nameOf(packageName: String): String? = names[packageName]
-}

@@ -13,6 +13,11 @@ internal interface HealthSource {
 
     fun openHealthSettings(): Boolean
 
+    /** Apps de saúde conhecidos que estão instalados, na ordem de relevância. */
+    fun installedHealthApps(): List<HealthApp>
+
+    fun openHealthApp(appId: String): Boolean
+
     suspend fun permissionStatus(): FitnessPermissionStatus
 
     /** Abre o pedido de permissão do sistema e devolve o estado depois da resposta do cliente. */
@@ -26,3 +31,6 @@ internal interface HealthSource {
 }
 
 internal expect fun platformHealthSource(): HealthSource
+
+/** Emite sempre que o app volta ao primeiro plano (ex.: depois de mudar permissões ou instalar o Health Connect). */
+internal expect fun appResumedEvents(): kotlinx.coroutines.flow.Flow<Unit>

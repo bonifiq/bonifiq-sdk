@@ -8,7 +8,7 @@ API key privada dentro do app.
 | - | - |
 | `br.com.bonifiq:bonifiq-core` | API headless: login seguro, saldo, extrato, recompensas, cupons, cashback no checkout, regulamento. |
 | `br.com.bonifiq:bonifiq-ui` | Componentes prontos em Compose Multiplatform: hub "Meus pontos" (o widget web da BonifiQ num WebView), cashback do checkout, chip de saldo e login por código. Inclui o core. |
-| `br.com.bonifiq:bonifiq-fitness` | **Opcional.** Passos, treinos e batimentos do Health Connect (Android) e do Apple Saúde (iOS). Veja [Fitness](#fitness-opcional). |
+| `br.com.bonifiq:bonifiq-fitness` | **Opcional.** Passos, treinos e batimentos do Health Connect (Android) e do Apple Saúde (iOS), com o fluxo de conexão pronto em Compose. Veja [Fitness](#fitness-opcional). |
 
 Versão atual: `0.4.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulador arm64). Licença: [Apache 2.0](LICENSE).
 
@@ -181,9 +181,37 @@ plataforma de saúde nem enviado à BonifiQ.
 
 Huawei Health não grava no Health Connect e fica fora por enquanto.
 
+**Fluxo pronto (Compose).** Conectar a atividade tem mais passos do que parece: instalar o Health Connect
+(Android 9 a 13), dar a permissão e, principalmente, **ligar o envio de dados no app do relógio ou da pulseira**.
+O cliente raramente sabe fazer esse último. O `FitnessConnect` cuida de tudo isso e só mostra o conteúdo do app
+quando há dados:
+
 ```kotlin
 val fitness = BonifiQFitness()   // uma instância por app; não precisa de Context
 
+FitnessConnect(fitness) { dados ->            // dados.steps (7 dias) e dados.workouts (30 dias)
+    MeuResumoDeAtividade(dados.steps, dados.workouts)
+}
+```
+
+| Situação | O que o `FitnessConnect` mostra |
+| - | - |
+| Sem plataforma de saúde (desktop, Android 8) | Aviso de indisponível |
+| Android 9 a 13 sem Health Connect | Botão para instalar pela Play Store |
+| Ainda não conectado | Botão **Conectar**, que abre o pedido do sistema |
+| Recusou o pedido | Atalho para liberar no Health Connect (depois de duas recusas o Android não pergunta mais) |
+| Conectado, mas sem dados | **"Falta 1 passo"**: para cada app de saúde instalado (Samsung Health, Mi Fitness, Zepp, Garmin Connect, Fitbit...), o caminho para ligar o envio ao Health Connect e um botão que abre o app |
+| Acesso parcial | Aviso acima do conteúdo, com **Gerenciar permissões** |
+
+- **Recarga:** os dados são lidos de novo quando o cliente volta ao app, por exemplo depois de ligar o envio no
+  Samsung Health.
+- **Estado próprio:** com `rememberFitnessConnectState(fitness)`, o app pode chamar `refresh()` (ex.: botão na top
+  bar) e ler `refreshing`.
+- **Textos:** vêm de `LocalFitnessStrings`.
+
+**Sem o componente**, use a API direto:
+
+```kotlin
 when (fitness.availability()) {
     FitnessAvailability.Available -> Unit
     FitnessAvailability.NeedsInstall -> fitness.openHealthAppInstall()   // Android 9 a 13: Health Connect na Play Store
@@ -202,6 +230,9 @@ val treinos = fitness.workouts(lastDays = 30)   // do mais recente ao mais antig
 - `recordingMethod`: `ActivelyRecorded` (o cliente iniciou o treino), `Automatic`, `Manual` (digitado à mão) ou
   `Unknown`.
 
+Quando a leitura volta vazia, `installedHealthApps()` lista os apps de saúde instalados (Android), cada um com o passo
+a passo para ligar o envio ao Health Connect, e `openHealthApp(app)` abre o app.
+
 Origem, GPS, batimentos e lançamento manual servem de base para validar desafios (anti-fraude).
 
 **Sobre os dados:**
@@ -217,6 +248,8 @@ Origem, GPS, batimentos e lançamento manual servem de base para validar desafio
 
 ### Configuração no Android
 
+- **Visibilidade de pacotes:** o manifest do módulo declara em `<queries>` os apps de saúde conhecidos. Sem isso, o
+  SDK não saberia quais estão instalados.
 - **Manifest:** o do módulo já declara as permissões de leitura (`android.permission.health.READ_STEPS`,
   `READ_EXERCISE`, `READ_DISTANCE`, `READ_ACTIVE_CALORIES_BURNED`, `READ_HEART_RATE`) e as telas que o Health Connect
   exige.

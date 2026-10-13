@@ -6,9 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.startup.Initializer
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import java.lang.ref.WeakReference
 
 internal actual fun platformHealthSource(): HealthSource = HealthConnectSource { FitnessAndroid.context }
+
+internal actual fun appResumedEvents(): Flow<Unit> = FitnessAndroid.resumes
 
 /**
  * Contexto do app e a tela em primeiro plano, guardados na inicialização (androidx.startup). Assim o
@@ -17,6 +21,10 @@ internal actual fun platformHealthSource(): HealthSource = HealthConnectSource {
 internal object FitnessAndroid {
     private var application: Application? = null
     private var resumed: WeakReference<Activity>? = null
+    private var startedActivities = 0
+
+    /** Volta do app ao primeiro plano (não conta a troca entre telas do próprio app). */
+    val resumes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     val context: Context
         get() = application ?: error(
@@ -36,9 +44,15 @@ internal object FitnessAndroid {
                     if (resumed?.get() === activity) resumed = null
                 }
 
+                override fun onActivityStarted(activity: Activity) {
+                    if (startedActivities++ == 0) resumes.tryEmit(Unit)
+                }
+
+                override fun onActivityStopped(activity: Activity) {
+                    startedActivities = (startedActivities - 1).coerceAtLeast(0)
+                }
+
                 override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
-                override fun onActivityStarted(activity: Activity) = Unit
-                override fun onActivityStopped(activity: Activity) = Unit
                 override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
                 override fun onActivityDestroyed(activity: Activity) = Unit
             },

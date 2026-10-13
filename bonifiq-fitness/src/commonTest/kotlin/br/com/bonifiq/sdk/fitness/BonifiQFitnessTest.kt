@@ -109,27 +109,36 @@ class BonifiQFitnessTest {
     )
 }
 
-private class FakeHealthSource(
-    private val availability: FitnessAvailability = FitnessAvailability.Available,
+internal class FakeHealthSource(
+    var availability: FitnessAvailability = FitnessAvailability.Available,
     private val availabilityFailure: Exception? = null,
-    private val steps: List<DailySteps> = emptyList(),
-    private val workouts: List<Workout> = emptyList(),
+    var steps: List<DailySteps> = emptyList(),
+    var workouts: List<Workout> = emptyList(),
     private val failure: Exception? = null,
+    var permission: FitnessPermissionStatus = FitnessPermissionStatus.Granted,
+    /** Resposta do cliente ao pedido de permissão. */
+    var grantOnRequest: FitnessPermissionStatus = FitnessPermissionStatus.Granted,
+    var installedApps: List<HealthApp> = emptyList(),
+    override val platform: HealthPlatform = HealthPlatform.HealthConnect,
 ) : HealthSource {
     var lastStepsRange: Pair<LocalDate, LocalDate>? = null
     var lastWorkoutsRange: Pair<Instant, Instant>? = null
-
-    override val platform: HealthPlatform = HealthPlatform.HealthConnect
+    val opened = mutableListOf<String>()
 
     override suspend fun availability(): FitnessAvailability {
         availabilityFailure?.let { throw it }
         return availability
     }
 
-    override fun openHealthAppInstall(): Boolean = false
-    override fun openHealthSettings(): Boolean = false
-    override suspend fun permissionStatus(): FitnessPermissionStatus = FitnessPermissionStatus.Granted
-    override suspend fun requestPermissions(): FitnessPermissionStatus = FitnessPermissionStatus.Granted
+    override fun openHealthAppInstall(): Boolean = opened.add("install")
+    override fun openHealthSettings(): Boolean = opened.add("settings")
+    override fun installedHealthApps(): List<HealthApp> = installedApps
+    override fun openHealthApp(appId: String): Boolean = opened.add(appId)
+    override suspend fun permissionStatus(): FitnessPermissionStatus = permission
+    override suspend fun requestPermissions(): FitnessPermissionStatus {
+        permission = grantOnRequest
+        return permission
+    }
 
     override suspend fun dailySteps(start: LocalDate, endInclusive: LocalDate): List<DailySteps> {
         failure?.let { throw it }

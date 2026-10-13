@@ -13,9 +13,23 @@
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
 
-    <!-- Android 9 a 13: o Health Connect é um app da Play Store; o SDK precisa enxergá-lo para saber se está instalado. -->
+    <!-- Android 9 a 13: o Health Connect é um app da Play Store; o SDK precisa enxergá-lo para saber se está instalado.
+         Os demais são os apps de saúde do HealthAppCatalog: quando a leitura volta vazia, o SDK mostra como ligar
+         o envio ao Health Connect no app que o cliente tem. -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.sec.android.app.shealth" />
+        <package android:name="com.xiaomi.wearable" />
+        <package android:name="com.huami.watch.hmwatchmanager" />
+        <package android:name="com.garmin.android.apps.connectmobile" />
+        <package android:name="com.fitbit.FitbitMobile" />
+        <package android:name="com.google.android.apps.fitness" />
+        <package android:name="com.strava" />
+        <package android:name="com.xiaomi.hm.health" />
+        <package android:name="fi.polar.polarflow" />
+        <package android:name="com.ouraring.oura" />
+        <package android:name="com.withings.wiscale2" />
+        <package android:name="com.huawei.health" />
     </queries>
 
     <application>

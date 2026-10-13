@@ -3,6 +3,9 @@
 package br.com.bonifiq.sdk.fitness
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -15,18 +18,30 @@ import platform.Foundation.NSCompoundPredicate
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateComponents
 import platform.Foundation.NSError
+import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSNumber
+import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSSortDescriptor
 import platform.Foundation.NSURL
 import platform.Foundation.dateWithTimeIntervalSince1970
 import platform.Foundation.timeIntervalSince1970
 import platform.HealthKit.*
 import platform.UIKit.UIApplication
+import platform.UIKit.UIApplicationDidBecomeActiveNotification
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.time.Instant
 
 internal actual fun platformHealthSource(): HealthSource = HealthKitSource()
+
+internal actual fun appResumedEvents(): Flow<Unit> = callbackFlow {
+    val observer = NSNotificationCenter.defaultCenter.addObserverForName(
+        UIApplicationDidBecomeActiveNotification,
+        null,
+        NSOperationQueue.mainQueue,
+    ) { _ -> trySend(Unit) }
+    awaitClose { NSNotificationCenter.defaultCenter.removeObserver(observer) }
+}
 
 /**
  * Apple Saúde (HealthKit). O app precisa da capability HealthKit (entitlement `com.apple.developer.healthkit`) e de
@@ -58,6 +73,11 @@ internal class HealthKitSource : HealthSource {
         if (HKHealthStore.isHealthDataAvailable()) FitnessAvailability.Available else FitnessAvailability.Unsupported
 
     override fun openHealthAppInstall(): Boolean = false
+
+    /** No iPhone, os apps de relógio gravam direto no Saúde; não há envio a ligar. */
+    override fun installedHealthApps(): List<HealthApp> = emptyList()
+
+    override fun openHealthApp(appId: String): Boolean = false
 
     /** Abre o app Saúde (as permissões ficam em Perfil → Apps). */
     override fun openHealthSettings(): Boolean {

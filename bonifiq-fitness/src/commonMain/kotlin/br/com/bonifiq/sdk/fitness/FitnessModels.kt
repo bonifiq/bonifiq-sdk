@@ -110,4 +110,18 @@ public enum class RecordingMethod {
     Unknown,
 }
 
+/**
+ * App de saúde instalado no aparelho (Android), com o passo a passo para ele enviar dados ao Health Connect.
+ * Use para orientar o cliente quando a leitura volta vazia: o envio é ligado no app do relógio ou da pulseira.
+ */
+public data class HealthApp(
+    /** Pacote do app (ex.: `com.sec.android.app.shealth`). */
+    val appId: String,
+    val name: String,
+    /** Se o app sabe enviar dados ao Health Connect (o Huawei Health, por exemplo, não envia). */
+    val syncsWithHealthPlatform: Boolean,
+    /** Passos, em pt-BR, para ligar o envio dentro do app. Vazio quando [syncsWithHealthPlatform] é `false`. */
+    val setupSteps: List<String>,
+)
+
 public enum class WorkoutType { Running, Walking, Hiking, Cycling, Swimming, Strength, Yoga, Dancing, Soccer, Other }

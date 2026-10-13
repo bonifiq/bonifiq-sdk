@@ -56,6 +56,16 @@ public class BonifiQFitness internal constructor(
      */
     public fun openHealthSettings(): Boolean = runCatching { source.openHealthSettings() }.getOrDefault(false)
 
+    /**
+     * Android: apps de saúde instalados (Samsung Health, Mi Fitness, Zepp, Garmin Connect, Fitbit...), com o passo a
+     * passo para enviar dados ao Health Connect. Mostre quando a leitura volta vazia. No iOS, lista vazia.
+     */
+    public fun installedHealthApps(): List<HealthApp> =
+        runCatching { source.installedHealthApps() }.getOrDefault(emptyList())
+
+    /** Abre o app (ex.: o Samsung Health) para o cliente ligar o envio de dados. */
+    public fun openHealthApp(app: HealthApp): Boolean = runCatching { source.openHealthApp(app.appId) }.getOrDefault(false)
+
     @Throws(FitnessException::class, CancellationException::class)
     public suspend fun permissionStatus(): FitnessPermissionStatus {
         requireAvailable()
