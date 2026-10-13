@@ -13,7 +13,7 @@ let package = Package(
         .binaryTarget(
             name: "BonifiQ",
             url: "https://github.com/bonifiq/bonifiq-sdk/releases/download/0.3.0/BonifiQ.xcframework.zip",
-            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+            checksum: "f4360431676c829a9bdde573d338052428b928f27a2306a13ed8a63cd0fee522"
         ),
     ]
 )
