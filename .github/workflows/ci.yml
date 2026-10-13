@@ -21,7 +21,9 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - name: Testes e compilação Android
-        run: ./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest :bonifiq-ui:compileAndroidMain --stacktrace
+        run: >-
+          ./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest :bonifiq-fitness:jvmTest
+          :bonifiq-ui:compileAndroidMain :bonifiq-fitness:compileAndroidMain --stacktrace
 
   ios:
     name: Framework iOS
@@ -34,5 +36,8 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       # Liga o framework de verdade (o Windows/Linux só compila os klibs): pega erro de link e de API do iOS.
-      - name: Link do framework para o simulador
-        run: ./gradlew :bonifiq-ui:linkDebugFrameworkIosSimulatorArm64 --stacktrace
+      # O BonifiQFitness inclui o core, a UI e o Fitness (HealthKit): compila e liga o código iOS de todos os módulos.
+      - name: Link dos frameworks para o simulador
+        run: >-
+          ./gradlew :bonifiq-ui:linkDebugFrameworkIosSimulatorArm64
+          :bonifiq-ios-fitness:linkDebugFrameworkIosSimulatorArm64 --stacktrace

@@ -44,6 +44,6 @@ public class BonifiQ internal constructor(
     }
 
     public companion object {
-        public const val VERSION: String = "0.3.0"
+        public const val VERSION: String = "0.4.0"
     }
 }

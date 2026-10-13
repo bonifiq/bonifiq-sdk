@@ -1,5 +1,5 @@
 [versions]
-bonifiq-sdk = "0.3.0"
+bonifiq-sdk = "0.4.0"
 
 agp = "9.4.1"
 android-compileSdk = "37"
@@ -14,8 +14,15 @@ maven-publish = "0.37.0"
 ktor = "3.6.0"
 androidx-webkit = "1.17.1"
 androidx-browser = "1.9.0"
+androidx-activity = "1.13.0"
+androidx-health-connect = "1.1.0"
+androidx-startup = "1.2.0"
+kotlinx-datetime = "0.8.0"
 
 [libraries]
+androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
+androidx-health-connect = { module = "androidx.health.connect:connect-client", version.ref = "androidx-health-connect" }
+androidx-startup = { module = "androidx.startup:startup-runtime", version.ref = "androidx-startup" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
 androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "androidx-webkit" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
@@ -27,6 +34,7 @@ compose-uiTestJunit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", ver
 junit = { module = "junit:junit", version = "4.13.2" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }

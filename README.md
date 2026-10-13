@@ -8,8 +8,9 @@ API key privada dentro do app.
 | - | - |
 | `br.com.bonifiq:bonifiq-core` | API headless: login seguro, saldo, extrato, recompensas, cupons, cashback no checkout, regulamento. |
 | `br.com.bonifiq:bonifiq-ui` | Componentes prontos em Compose Multiplatform: hub "Meus pontos" (o widget web da BonifiQ num WebView), cashback do checkout, chip de saldo e login por código. Inclui o core. |
+| `br.com.bonifiq:bonifiq-fitness` | **Opcional.** Passos, treinos e batimentos do Health Connect (Android) e do Apple Saúde (iOS). Veja [Fitness](#fitness-opcional). |
 
-Versão atual: `0.3.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulador arm64). Licença: [Apache 2.0](LICENSE).
+Versão atual: `0.4.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulador arm64). Licença: [Apache 2.0](LICENSE).
 
 ## Instalação
 
@@ -17,17 +18,22 @@ Versão atual: `0.3.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulado
 
 ```kotlin
 // build.gradle.kts (módulo KMP ou Android); o repositório mavenCentral() já vem nos projetos novos
-implementation("br.com.bonifiq:bonifiq-ui:0.3.0")   // ou só bonifiq-core
+implementation("br.com.bonifiq:bonifiq-ui:0.4.0")       // ou só bonifiq-core
+implementation("br.com.bonifiq:bonifiq-fitness:0.4.0")  // opcional: dados de atividade física
 ```
 
 **iOS (Swift)**, pelo Swift Package Manager: no Xcode, **File → Add Package Dependencies** com a URL
 `https://github.com/bonifiq/bonifiq-sdk`, ou no `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/bonifiq/bonifiq-sdk", from: "0.3.0")
+.package(url: "https://github.com/bonifiq/bonifiq-sdk", from: "0.4.0")
 ```
 
-O pacote traz o XCFramework `BonifiQ`, com o core e a UI (iOS 15 ou mais novo).
+O pacote tem dois produtos (iOS 15 ou mais novo). Adicione **um** deles ao app, porque os dois juntos duplicam o SDK:
+
+- `BonifiQ`: core e UI.
+- `BonifiQFitness`: core, UI e o módulo Fitness. No Swift, `import BonifiQFitness` no lugar de `import BonifiQ`.
+  Exige a capability HealthKit no app; veja [Fitness](#fitness-opcional).
 
 ## Uso rápido
 
@@ -163,17 +169,101 @@ resultado ao widget.
   Um `applicationId` ou bundle id com `_` não vira esquema de URL. Nesse caso o widget usa o navegador externo, como
   antes.
 
+## Fitness (opcional)
+
+O módulo `bonifiq-fitness` lê os dados de atividade que o aparelho já reúne. Ele **só lê**: nada é gravado na
+plataforma de saúde nem enviado à BonifiQ.
+
+| Plataforma | Fonte | O que chega |
+| - | - | - |
+| Android 9+ | [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect) | Samsung Health, Fitbit, Mi Fitness (Xiaomi), Zepp (Amazfit), Garmin Connect, Google Fit, Strava e outros apps que sincronizam com o Health Connect |
+| iOS 15+ | Apple Saúde (HealthKit) | iPhone, Apple Watch e apps conectados ao Saúde (Garmin, Strava, Zepp, Mi Fitness...) |
+
+Huawei Health não grava no Health Connect e fica fora por enquanto.
+
+```kotlin
+val fitness = BonifiQFitness()   // uma instância por app; não precisa de Context
+
+when (fitness.availability()) {
+    FitnessAvailability.Available -> Unit
+    FitnessAvailability.NeedsInstall -> fitness.openHealthAppInstall()   // Android 9 a 13: Health Connect na Play Store
+    FitnessAvailability.Unsupported -> return                            // ex.: Android 8, desktop
+}
+fitness.requestPermissions()                    // num gesto do cliente ("Conectar"); Granted, Partial ou NotGranted
+val passos = fitness.dailySteps(lastDays = 7)   // um item por dia, com 0 nos dias sem dado
+val treinos = fitness.workouts(lastDays = 30)   // do mais recente ao mais antigo
+```
+
+**O que vem em cada treino (`Workout`):**
+- tipo (corrida, caminhada, bike, natação, musculação...), início e fim, distância e calorias ativas;
+- `heartRate`: média, mínima e máxima dos batimentos gravados **pelo mesmo app/relógio** durante o treino;
+- `hasRoute`: se há trajeto de GPS;
+- `source`: o app (`appId`, `appName`) e o aparelho (relógio, pulseira, celular...);
+- `recordingMethod`: `ActivelyRecorded` (o cliente iniciou o treino), `Automatic`, `Manual` (digitado à mão) ou
+  `Unknown`.
+
+Origem, GPS, batimentos e lançamento manual servem de base para validar desafios (anti-fraude).
+
+**Sobre os dados:**
+- **Passos por dia:** a plataforma soma os passos sem contar em dobro o que vem de vários apps.
+- **Sem permissão:** a leitura volta vazia, com os passos em 0 e os campos do treino em `null`.
+- **iOS:** a Apple não informa se o cliente negou a leitura. Por isso, depois do pedido, `permissionStatus()` responde
+  `Granted` mesmo quando os dados vão chegar vazios.
+- **Erros:** as funções lançam só `FitnessException`:
+  - `Unavailable`: sem plataforma de saúde;
+  - `Platform`: falha ou limite de consultas.
+
+  Elas declaram isso em `@Throws`, como o core.
+
+### Configuração no Android
+
+- **Manifest:** o do módulo já declara as permissões de leitura (`android.permission.health.READ_STEPS`,
+  `READ_EXERCISE`, `READ_DISTANCE`, `READ_ACTIVE_CALORIES_BURNED`, `READ_HEART_RATE`) e as telas que o Health Connect
+  exige.
+- **Política de privacidade:** o app só precisa informar a URL dela, que o Health Connect mostra no pedido de
+  permissão. Sem ela, o pedido não aparece:
+
+  ```xml
+  <!-- AndroidManifest.xml do app, dentro de <application> -->
+  <meta-data
+      android:name="br.com.bonifiq.sdk.fitness.PRIVACY_POLICY_URL"
+      android:value="https://sualoja.com.br/privacidade" />
+  ```
+
+- **minSdk:** o módulo funciona com minSdk 24. Abaixo do Android 9, `availability()` responde `Unsupported`.
+- **Inicialização:** o contexto do app é capturado pelo `androidx.startup`. Se o app desliga o
+  `InitializationProvider`, `availability()` responde `Unsupported`.
+- **Play Console:** apps com permissões do Health Connect precisam preencher a **declaração de apps de saúde**
+  (Conteúdo do app → Apps de saúde) e justificar cada permissão. Também precisam de política de privacidade
+  publicada e da seção de Segurança dos dados preenchida.
+
+### Configuração no iOS
+
+- Ative a capability **HealthKit** no target (Signing & Capabilities). Ela adiciona o entitlement
+  `com.apple.developer.healthkit`, e o App ID precisa ter HealthKit no portal da Apple.
+- No `Info.plist`, adicione `NSHealthShareUsageDescription` com o motivo da leitura. Sem esse texto, o SDK lança
+  `FitnessException.Unavailable` em vez de deixar o HealthKit encerrar o app.
+- Apps Swift usam o produto `BonifiQFitness` do Swift Package Manager:
+
+  ```swift
+  import BonifiQFitness
+
+  let fitness = BonifiQFitness()
+  let status = try await fitness.requestPermissions()
+  let passos = try await fitness.dailySteps(lastDays: 7)
+  ```
+
 ## Desenvolvimento
 
 ```bash
-./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest
+./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest :bonifiq-fitness:jvmTest
 ./gradlew publishToMavenLocal
 ```
 
 - **Testes de UI:** salvam screenshots em `bonifiq-ui/build/screenshots`.
 - **Smoke contra a API real:** use `BONIFIQ_SMOKE=1` (só endpoints públicos).
 - **`publishToMavenLocal`:** publica a versão do `libs.versions.toml` no Maven local, sem assinar. Serve para testar o SDK num app (ex.: o app de demonstração) antes da release.
-- **CI** (`.github/workflows/ci.yml`): testes e compilação Android em todo PR, e o link do framework iOS num Mac.
+- **CI** (`.github/workflows/ci.yml`): em todo PR, roda os testes e a compilação Android e, num Mac, faz o link dos frameworks iOS (`BonifiQ` e `BonifiQFitness`).
 
 ## Como publicar uma versão
 
@@ -182,8 +272,9 @@ resultado ao widget.
 2. Depois do merge, rode **Actions → Release → Run workflow** com a mesma versão. O workflow, num Mac:
    - roda os testes;
    - assina e envia todos os alvos ao Maven Central;
-   - gera o XCFramework, atualiza o `Package.swift` (URL e checksum), commita na `main` e cria a tag;
-   - cria a Release no GitHub com o `BonifiQ.xcframework.zip`.
+   - gera os XCFrameworks `BonifiQ` e `BonifiQFitness`, atualiza o `Package.swift` (versão e checksums), commita na
+     `main` e cria a tag;
+   - cria a Release no GitHub com os dois `.xcframework.zip`.
 3. Em [central.sonatype.com](https://central.sonatype.com) → **Deployments**, confira e clique em **Publish**. A versão
    aparece no Maven Central em alguns minutos.
 

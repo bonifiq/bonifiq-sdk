@@ -49,31 +49,39 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Testes
-        run: ./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest --stacktrace
+        run: ./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest :bonifiq-fitness:jvmTest --stacktrace
 
       - name: Publicar no Maven Central (aguarda o "Publish" no portal)
         run: ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace
 
-      - name: Gerar o XCFramework
+      # Dois frameworks: BonifiQ (core + UI) e BonifiQFitness (o mesmo + Fitness/HealthKit). O app usa um dos dois.
+      - name: Gerar os XCFrameworks
         run: |
           set -euo pipefail
-          ./gradlew :bonifiq-ui:assembleBonifiQReleaseXCFramework --stacktrace
-          cd bonifiq-ui/build/XCFrameworks/release
-          ditto -c -k --sequesterRsrc --keepParent BonifiQ.xcframework "$GITHUB_WORKSPACE/BonifiQ.xcframework.zip"
+          ./gradlew :bonifiq-ui:assembleBonifiQReleaseXCFramework :bonifiq-ios-fitness:assembleBonifiQFitnessReleaseXCFramework --stacktrace
+          (cd bonifiq-ui/build/XCFrameworks/release &&
+            ditto -c -k --sequesterRsrc --keepParent BonifiQ.xcframework "$GITHUB_WORKSPACE/BonifiQ.xcframework.zip")
+          (cd bonifiq-ios-fitness/build/XCFrameworks/release &&
+            ditto -c -k --sequesterRsrc --keepParent BonifiQFitness.xcframework "$GITHUB_WORKSPACE/BonifiQFitness.xcframework.zip")
 
       - name: Atualizar o Package.swift, commitar e criar a tag
         run: |
           set -euo pipefail
           CHECKSUM=$(swift package compute-checksum BonifiQ.xcframework.zip)
-          URL="https://github.com/bonifiq/bonifiq-sdk/releases/download/$VERSION/BonifiQ.xcframework.zip"
-          sed -i '' -E "s#url: \"[^\"]+\"#url: \"$URL\"#; s#checksum: \"[^\"]+\"#checksum: \"$CHECKSUM\"#" Package.swift
+          FITNESS_CHECKSUM=$(swift package compute-checksum BonifiQFitness.xcframework.zip)
+          sed -i '' -E \
+            -e "s#^let version = \"[^\"]*\"#let version = \"$VERSION\"#" \
+            -e "s#^let bonifiqChecksum = \"[^\"]*\"#let bonifiqChecksum = \"$CHECKSUM\"#" \
+            -e "s#^let bonifiqFitnessChecksum = \"[^\"]*\"#let bonifiqFitnessChecksum = \"$FITNESS_CHECKSUM\"#" \
+            Package.swift
+          grep -q "^let bonifiqFitnessChecksum = \"$FITNESS_CHECKSUM\"" Package.swift || { echo "Package.swift não foi atualizado"; exit 1; }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "release: $VERSION"
           git tag "$VERSION"
           git push origin HEAD:main "$VERSION"
 
-      - name: Release no GitHub com o XCFramework
+      - name: Release no GitHub com os XCFrameworks
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$VERSION" BonifiQ.xcframework.zip --title "$VERSION" --generate-notes
+        run: gh release create "$VERSION" BonifiQ.xcframework.zip BonifiQFitness.xcframework.zip --title "$VERSION" --generate-notes
