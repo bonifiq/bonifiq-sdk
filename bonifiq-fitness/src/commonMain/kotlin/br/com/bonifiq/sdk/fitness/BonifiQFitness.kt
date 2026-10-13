@@ -29,10 +29,16 @@ import kotlin.time.Instant
  */
 public class BonifiQFitness internal constructor(
     private val source: HealthSource,
-    private val clock: Clock,
+    internal val clock: Clock,
+    internal val store: FitnessStore = InMemoryFitnessStore(),
     private val timeZone: () -> TimeZone,
 ) {
-    public constructor() : this(platformHealthSource(), Clock.System, { TimeZone.currentSystemDefault() })
+    public constructor() : this(
+        platformHealthSource(),
+        Clock.System,
+        platformFitnessStore(),
+        { TimeZone.currentSystemDefault() },
+    )
 
     /** Plataforma de saúde usada neste aparelho. */
     public val platform: HealthPlatform get() = source.platform

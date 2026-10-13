@@ -14,6 +14,20 @@ internal actual fun platformHealthSource(): HealthSource = HealthConnectSource {
 
 internal actual fun appResumedEvents(): Flow<Unit> = FitnessAndroid.resumes
 
+internal actual fun platformFitnessStore(): FitnessStore = object : FitnessStore {
+    // Sem a inicialização do módulo (InitializationProvider removido), não guarda nada.
+    private val prefs by lazy {
+        runCatching { FitnessAndroid.context.getSharedPreferences("br.com.bonifiq.sdk.fitness", Context.MODE_PRIVATE) }
+            .getOrNull()
+    }
+
+    override fun getString(key: String): String? = prefs?.getString(key, null)
+
+    override fun putString(key: String, value: String?) {
+        prefs?.edit()?.apply { if (value == null) remove(key) else putString(key, value) }?.apply()
+    }
+}
+
 /**
  * Contexto do app e a tela em primeiro plano, guardados na inicialização (androidx.startup). Assim o
  * `BonifiQFitness()` não pede `Context` e funciona igual em código comum (KMP).

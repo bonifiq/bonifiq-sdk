@@ -23,6 +23,7 @@ import platform.Foundation.NSNumber
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSSortDescriptor
 import platform.Foundation.NSURL
+import platform.Foundation.NSUserDefaults
 import platform.Foundation.dateWithTimeIntervalSince1970
 import platform.Foundation.timeIntervalSince1970
 import platform.HealthKit.*
@@ -33,6 +34,17 @@ import kotlin.coroutines.resumeWithException
 import kotlin.time.Instant
 
 internal actual fun platformHealthSource(): HealthSource = HealthKitSource()
+
+internal actual fun platformFitnessStore(): FitnessStore = object : FitnessStore {
+    private val defaults = NSUserDefaults.standardUserDefaults
+
+    override fun getString(key: String): String? = defaults.stringForKey("br.com.bonifiq.sdk.fitness.$key")
+
+    override fun putString(key: String, value: String?) {
+        val fullKey = "br.com.bonifiq.sdk.fitness.$key"
+        if (value == null) defaults.removeObjectForKey(fullKey) else defaults.setObject(value, forKey = fullKey)
+    }
+}
 
 internal actual fun appResumedEvents(): Flow<Unit> = callbackFlow {
     val observer = NSNotificationCenter.defaultCenter.addObserverForName(

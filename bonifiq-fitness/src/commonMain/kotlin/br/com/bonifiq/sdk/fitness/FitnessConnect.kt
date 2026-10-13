@@ -38,7 +38,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /** Dados lidos quando a conexão está pronta. */
 public data class FitnessSnapshot(
@@ -48,6 +52,8 @@ public data class FitnessSnapshot(
     val steps: List<DailySteps>,
     /** Do mais recente ao mais antigo. */
     val workouts: List<Workout>,
+    /** Quando os dados foram lidos. Os apps de relógio enviam à plataforma de tempos em tempos (até ~1 hora). */
+    val readAt: Instant,
 ) {
     val hasData: Boolean get() = steps.any { it.count > 0 } || workouts.isNotEmpty()
 }
@@ -74,6 +80,7 @@ public class FitnessConnectState internal constructor(
 
     private var job: Job? = null
     private var denied = false
+    private var lastOpenedApp: HealthApp? = null
 
     /** Lê de novo (ex.: botão atualizar). O componente também recarrega quando o app volta ao primeiro plano. */
     public fun refresh() {
@@ -100,7 +107,36 @@ public class FitnessConnectState internal constructor(
 
     internal fun openHealthSettings() = fitness.openHealthSettings()
 
-    internal fun openHealthApp(app: HealthApp) = fitness.openHealthApp(app)
+    internal fun openHealthApp(app: HealthApp): Boolean {
+        lastOpenedApp = app
+        return fitness.openHealthApp(app)
+    }
+
+    /**
+     * O cliente diz que ligou o envio no app do relógio. A tela passa a "Aguardando seus dados" (e lembra disso por
+     * [WAIT_FOR_SYNC], mesmo fechando o app), porque o envio leva até ~1 hora.
+     */
+    internal fun markSyncEnabled() {
+        val noData = phase as? ConnectPhase.NoData
+        val app = lastOpenedApp ?: noData?.installedApps?.singleOrNull { it.syncsWithHealthPlatform }
+        fitness.store.putString(SYNC_ENABLED_KEY, "${fitness.clock.now().toEpochMilliseconds()}|${app?.appId.orEmpty()}")
+        if (noData != null) phase = noData.copy(waiting = Waiting(app))
+        refresh()
+    }
+
+    /** Volta ao passo a passo (ex.: o cliente não tinha ligado o envio de verdade). */
+    internal fun showSetupAgain() {
+        fitness.store.putString(SYNC_ENABLED_KEY, null)
+        (phase as? ConnectPhase.NoData)?.let { phase = it.copy(waiting = null) }
+    }
+
+    private fun pendingSync(installedApps: List<HealthApp>): Waiting? {
+        val saved = fitness.store.getString(SYNC_ENABLED_KEY) ?: return null
+        val at = saved.substringBefore('|').toLongOrNull() ?: return null
+        if (fitness.clock.now() - Instant.fromEpochMilliseconds(at) > WAIT_FOR_SYNC) return null
+        val appId = saved.substringAfter('|', "")
+        return Waiting(installedApps.firstOrNull { it.appId == appId })
+    }
 
     private suspend fun load(afterRequest: Boolean) {
         if (phase is ConnectPhase.Ready) refreshing = true
@@ -119,11 +155,14 @@ public class FitnessConnectState internal constructor(
                             permission = permission,
                             steps = fitness.dailySteps(lastDays = stepsDays),
                             workouts = fitness.workouts(lastDays = workoutDays),
+                            readAt = fitness.clock.now(),
                         )
                         if (snapshot.hasData) {
+                            fitness.store.putString(SYNC_ENABLED_KEY, null)
                             ConnectPhase.Ready(snapshot)
                         } else {
-                            ConnectPhase.NoData(fitness.installedHealthApps())
+                            val apps = fitness.installedHealthApps()
+                            ConnectPhase.NoData(apps, waiting = pendingSync(apps))
                         }
                     }
                 }
@@ -134,7 +173,17 @@ public class FitnessConnectState internal constructor(
             refreshing = false
         }
     }
+
+    private companion object {
+        const val SYNC_ENABLED_KEY = "syncEnabledAt"
+
+        /** Depois disso sem dados, o passo a passo volta: provavelmente o envio não foi ligado. */
+        val WAIT_FOR_SYNC = 24.hours
+    }
 }
+
+/** O cliente disse que ligou o envio em [app] (`null` quando não sabemos qual app). */
+internal data class Waiting(val app: HealthApp?)
 
 internal sealed interface ConnectPhase {
     data object Loading : ConnectPhase
@@ -142,8 +191,11 @@ internal sealed interface ConnectPhase {
     data object NeedsInstall : ConnectPhase
     data class NotConnected(val requesting: Boolean, val denied: Boolean) : ConnectPhase
 
-    /** Conectado, mas a plataforma não tem dados: falta ligar o envio no app do relógio/pulseira. */
-    data class NoData(val installedApps: List<HealthApp>) : ConnectPhase
+    /**
+     * Conectado, mas a plataforma não tem dados: falta ligar o envio no app do relógio/pulseira ou, se o cliente já
+     * ligou ([waiting]), os dados ainda não chegaram.
+     */
+    data class NoData(val installedApps: List<HealthApp>, val waiting: Waiting? = null) : ConnectPhase
     data class Ready(val snapshot: FitnessSnapshot) : ConnectPhase
     data class Error(val message: String?) : ConnectPhase
 }
@@ -248,7 +300,21 @@ public fun FitnessConnect(
                 }
             }
 
-            is ConnectPhase.NoData -> NoDataGuide(state, phase.installedApps, strings)
+            is ConnectPhase.NoData -> {
+                val waiting = phase.waiting
+                if (waiting == null) {
+                    NoDataGuide(state, phase.installedApps, strings)
+                } else {
+                    WaitingForData(state, waiting, strings)
+                    // O envio do app do relógio não avisa ninguém: confere de minuto em minuto enquanto a tela está aberta.
+                    LaunchedEffect(waiting) {
+                        while (true) {
+                            delay(1.minutes)
+                            state.refresh()
+                        }
+                    }
+                }
+            }
 
             is ConnectPhase.Error -> Message(
                 icon = Icons.Filled.Warning,
@@ -323,10 +389,46 @@ private fun NoDataGuide(state: FitnessConnectState, installedApps: List<HealthAp
             )
         }
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            OutlinedButton(onClick = state::refresh, enabled = !state.refreshing) { Text(strings.doneRefresh) }
+            if (apple) {
+                OutlinedButton(onClick = state::refresh, enabled = !state.refreshing) { Text(strings.refresh) }
+            } else {
+                OutlinedButton(onClick = state::markSyncEnabled) { Text(strings.syncEnabled) }
+            }
             TextButton(onClick = { state.openHealthSettings() }) {
                 Text(if (apple) strings.openAppleHealth else strings.openHealthConnect)
             }
+        }
+    }
+}
+
+@Composable
+private fun WaitingForData(state: FitnessConnectState, waiting: Waiting, strings: FitnessStrings) {
+    val appName = waiting.app?.name ?: strings.genericAppName
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        CircularProgressIndicator(Modifier.size(32.dp), strokeWidth = 3.dp)
+        Text(strings.waitingTitle, style = MaterialTheme.typography.titleLarge)
+        Text(strings.waitingMessage.replace("%s", appName), style = MaterialTheme.typography.bodyMedium)
+        if (waiting.app != null) {
+            Text(
+                strings.waitingTip.replace("%s", waiting.app.name),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp)) {
+            Text(strings.waitingHistory, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp))
+        }
+        if (waiting.app != null) {
+            Button(onClick = { state.openHealthApp(waiting.app) }, modifier = Modifier.fillMaxWidth()) {
+                Text(strings.openApp.replace("%s", waiting.app.name))
+            }
+        }
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            OutlinedButton(onClick = state::refresh, enabled = !state.refreshing) { Text(strings.refresh) }
+            TextButton(onClick = state::showSetupAgain) { Text(strings.waitingShowSteps) }
         }
     }
 }

@@ -5,6 +5,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -64,10 +69,34 @@ class FitnessConnectUiTest {
         onNodeWithText("Abrir o Samsung Health").performClick()
         assertEquals(listOf("com.sec.android.app.shealth"), source.opened)
 
-        // O cliente ligou o envio no Samsung Health e voltou.
+        // O cliente ligou o envio no Samsung Health e voltou; os dados ainda não chegaram.
+        onNodeWithText("Já liguei o envio").performClick()
+        waitForText("Aguardando seus dados")
+        waitForText("Agora o Samsung Health envia seus dados à Conexão Saúde")
+        waitForText("O histórico anterior pode não aparecer")
+        snapshot("fitness-05-aguardando")
+
+        // Chegaram.
         source.steps = someSteps
-        onNodeWithText("Já ativei, atualizar").performClick()
+        onNodeWithText("Atualizar").performClick()
         waitForText("dados: 4230 passos")
+    }
+
+    @Test
+    fun waitingIsRememberedWhenTheAppOpensAgain() = runDesktopComposeUiTest(width = 412, height = 760) {
+        val store = InMemoryFitnessStore()
+        val source = FakeHealthSource(installedApps = listOf(samsungHealth))
+        var opened by mutableStateOf(1)
+        setContent { key(opened) { Host(source, store) } }
+
+        waitForText("Falta 1 passo")
+        onNodeWithText("Já liguei o envio").performClick()
+        waitForText("Aguardando seus dados")
+
+        opened++ // tela recriada (ex.: o app foi fechado e aberto de novo)
+        waitForText("Aguardando seus dados")
+        onNodeWithText("Ver de novo como ligar o envio").performClick()
+        waitForText("Falta 1 passo")
     }
 
     @Test
@@ -129,8 +158,8 @@ class FitnessConnectUiTest {
     }
 
     @Composable
-    private fun Host(source: FakeHealthSource) {
-        val fitness = BonifiQFitness(source, Clock.System) { TimeZone.currentSystemDefault() }
+    private fun Host(source: FakeHealthSource, store: FitnessStore = InMemoryFitnessStore()) {
+        val fitness = remember(source, store) { BonifiQFitness(source, Clock.System, store) { TimeZone.currentSystemDefault() } }
         MaterialTheme {
             Surface {
                 FitnessConnect(fitness) { data ->

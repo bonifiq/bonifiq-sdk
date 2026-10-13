@@ -5,6 +5,8 @@ import kotlin.time.Instant
 
 internal actual fun platformHealthSource(): HealthSource = UnsupportedHealthSource
 
+internal actual fun platformFitnessStore(): FitnessStore = InMemoryFitnessStore()
+
 internal actual fun appResumedEvents(): kotlinx.coroutines.flow.Flow<Unit> = kotlinx.coroutines.flow.emptyFlow()
 
 /** Desktop: sem plataforma de saúde. */
