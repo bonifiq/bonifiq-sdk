@@ -201,7 +201,7 @@ public fun FitnessConnect(
     content: @Composable (FitnessSnapshot) -> Unit,
 ) {
     val strings = LocalFitnessStrings.current
-    val platformName = if (state.platform == HealthPlatform.AppleHealth) strings.appleHealth else strings.healthConnect
+    val apple = state.platform == HealthPlatform.AppleHealth
     Box(modifier.fillMaxSize()) {
         when (val phase = state.phase) {
             ConnectPhase.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -209,10 +209,10 @@ public fun FitnessConnect(
             ConnectPhase.Unsupported -> Message(
                 icon = Icons.Filled.Favorite,
                 title = strings.unsupportedTitle,
-                message = if (state.platform == HealthPlatform.None) {
-                    strings.unsupportedNoPlatform
-                } else {
-                    strings.unsupportedDevice.replace("%s", platformName)
+                message = when (state.platform) {
+                    HealthPlatform.None -> strings.unsupportedNoPlatform
+                    HealthPlatform.AppleHealth -> strings.unsupportedAppleHealth
+                    HealthPlatform.HealthConnect -> strings.unsupportedHealthConnect
                 },
             )
 
@@ -227,7 +227,7 @@ public fun FitnessConnect(
             is ConnectPhase.NotConnected -> Message(
                 icon = Icons.Filled.Favorite,
                 title = strings.connectTitle,
-                message = strings.connectMessage.replace("%s", platformName),
+                message = if (apple) strings.connectMessageAppleHealth else strings.connectMessageHealthConnect,
             ) {
                 Button(onClick = state::connect, enabled = !phase.requesting) {
                     if (phase.requesting) {
@@ -239,7 +239,7 @@ public fun FitnessConnect(
                 if (phase.denied && state.platform == HealthPlatform.HealthConnect) {
                     // Depois de duas recusas o Android não mostra mais o pedido: libera-se no Health Connect.
                     Text(
-                        strings.connectDeniedHint.replace("%s", platformName),
+                        strings.connectDeniedHint,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,

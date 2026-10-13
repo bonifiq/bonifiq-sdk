@@ -34,7 +34,7 @@ class FitnessConnectUiTest {
         syncsWithHealthPlatform = true,
         setupSteps = listOf(
             "Abra o Samsung Health e toque em ⋮ (Mais opções) → Configurações.",
-            "Toque em Health Connect e permita todos os dados.",
+            "Toque em Conexão Saúde e permita todos os dados.",
         ),
     )
     private val huawei = HealthApp("com.huawei.health", "Huawei Health", syncsWithHealthPlatform = false, emptyList())
@@ -59,7 +59,7 @@ class FitnessConnectUiTest {
         setContent { Host(source) }
 
         waitForText("Falta 1 passo")
-        waitForText("O Huawei Health não envia dados ao Health Connect.")
+        waitForText("O Huawei Health não envia dados à Conexão Saúde.")
         snapshot("fitness-02-falta-1-passo")
         onNodeWithText("Abrir o Samsung Health").performClick()
         assertEquals(listOf("com.sec.android.app.shealth"), source.opened)
@@ -89,7 +89,7 @@ class FitnessConnectUiTest {
         onNodeWithText("Conectar").performClick()
         waitForText("O pedido não apareceu ou você recusou?")
         snapshot("fitness-03-recusou")
-        onNodeWithText("Abrir o Health Connect").performClick()
+        onNodeWithText("Abrir a Conexão Saúde").performClick()
         assertEquals(listOf("settings"), source.opened)
     }
 
@@ -98,9 +98,9 @@ class FitnessConnectUiTest {
         val source = FakeHealthSource(availability = FitnessAvailability.NeedsInstall)
         setContent { Host(source) }
 
-        waitForText("Instale o Health Connect")
+        waitForText("Instale a Conexão Saúde")
         snapshot("fitness-04-instalar")
-        onNodeWithText("Instalar o Health Connect").performClick()
+        onNodeWithText("Instalar a Conexão Saúde").performClick()
         assertEquals(listOf("install"), source.opened)
     }
 

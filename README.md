@@ -179,7 +179,8 @@ plataforma de saúde nem enviado à BonifiQ.
 | Android 9+ | [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect) | Samsung Health, Fitbit, Mi Fitness (Xiaomi), Zepp (Amazfit), Garmin Connect, Google Fit, Strava e outros apps que sincronizam com o Health Connect |
 | iOS 15+ | Apple Saúde (HealthKit) | iPhone, Apple Watch e apps conectados ao Saúde (Garmin, Strava, Zepp, Mi Fitness...) |
 
-Huawei Health não grava no Health Connect e fica fora por enquanto.
+Huawei Health não grava no Health Connect e fica fora por enquanto. No Android em português, o Health Connect aparece como **Conexão Saúde**, e os textos do
+componente usam esse nome.
 
 **Fluxo pronto (Compose).** Conectar a atividade tem mais passos do que parece: instalar o Health Connect
 (Android 9 a 13), dar a permissão e, principalmente, **ligar o envio de dados no app do relógio ou da pulseira**.
