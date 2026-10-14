@@ -109,8 +109,12 @@ para a tela "Conexão Saúde". Por isso o caminho aparece escrito no cartão.
    quem não usa fitness não leva o HealthKit. Apps Kotlin Multiplatform usam a dependência Maven, como no Android.
 2. **Capability HealthKit** no target (Signing & Capabilities). No portal da Apple (Identifiers → App ID), marque
    **HealthKit** e deixe "Clinical Health Records" desmarcado.
-3. **`NSHealthShareUsageDescription`** no `Info.plist`. Sem esse texto, o HealthKit encerra o app com uma exceção que
-   o Kotlin não captura. O SDK confere antes e lança `FitnessException.Unavailable`.
+3. **Os dois textos de privacidade no `Info.plist`**, mesmo que o app só leia:
+   - **`NSHealthShareUsageDescription` (leitura):** sem ele, o HealthKit encerra o app com uma exceção que o Kotlin
+     não captura. O SDK confere antes e lança `FitnessException.Unavailable`.
+   - **`NSHealthUpdateUsageDescription` (gravação):** com o entitlement do HealthKit, a App Store Connect recusa o
+     upload sem ele ("Missing purpose string in Info.plist"). Foi o que aconteceu no nosso primeiro envio ao
+     TestFlight. Um texto como "O app não grava dados no Saúde; só lê passos, treinos e batimentos" resolve.
 4. **Build em CI sem assinatura:** um archive com `CODE_SIGNING_ALLOWED=NO` perde os entitlements, e a exportação
    para o TestFlight sai **sem HealthKit**. Antes de exportar, assine o `.app` localmente com o arquivo de
    entitlements:
@@ -161,7 +165,10 @@ Sem Compose, use a API direta: `availability()`, `requestPermissions()`, `dailyS
 
 ### App Store
 
-- **App ID:** precisa ter HealthKit no portal da Apple.
+- **App ID:** precisa ter HealthKit no portal da Apple. Marcar a capability invalida os perfis de assinatura;
+  com assinatura automática (Xcode ou chave da API no CI), eles são gerados de novo no próximo build.
+- **Textos de privacidade:** os dois, de leitura e de gravação (veja Integração → iOS). Sem o de gravação, o upload
+  é recusado.
 - **Revisão:** a Apple exige que o app use os dados de saúde para algo visível ao cliente. A aba de atividade
   cumpre isso.
 - **App Privacy:** dados que não saem do aparelho não precisam ser declarados como coletados.

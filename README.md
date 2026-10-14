@@ -278,8 +278,10 @@ Origem, GPS, batimentos e lançamento manual servem de base para validar desafio
 
 - Ative a capability **HealthKit** no target (Signing & Capabilities). Ela adiciona o entitlement
   `com.apple.developer.healthkit`, e o App ID precisa ter HealthKit no portal da Apple.
-- No `Info.plist`, adicione `NSHealthShareUsageDescription` com o motivo da leitura. Sem esse texto, o SDK lança
-  `FitnessException.Unavailable` em vez de deixar o HealthKit encerrar o app.
+- No `Info.plist`, adicione os **dois** textos, mesmo que o app só leia:
+  - `NSHealthShareUsageDescription`, com o motivo da leitura. Sem ele, o SDK lança `FitnessException.Unavailable`
+    em vez de deixar o HealthKit encerrar o app.
+  - `NSHealthUpdateUsageDescription`. Sem ele, a App Store Connect recusa o upload ("Missing purpose string").
 - Apps Swift usam o produto `BonifiQFitness` do Swift Package Manager:
 
   ```swift
