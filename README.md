@@ -309,7 +309,9 @@ Origem, GPS, batimentos e lançamento manual servem de base para validar desafio
    - gera os XCFrameworks `BonifiQ` e `BonifiQFitness`, atualiza o `Package.swift` (versão e checksums), commita na
      `main` e cria a tag;
    - cria a Release no GitHub com os dois `.xcframework.zip`.
-3. Em [central.sonatype.com](https://central.sonatype.com) → **Deployments**, confira e clique em **Publish**. A versão
+3. Em [central.sonatype.com](https://central.sonatype.com) → **Deployments**, confira e clique em **Publish**.
+   Se o workflow falhar depois do envio ao Central (ex.: nos XCFrameworks), rode de novo com **publish_maven**
+   desmarcado: ele refaz só XCFrameworks, `Package.swift`, tag e Release, e a versão já enviada segue no Central. A versão
    aparece no Maven Central em alguns minutos.
 
 Credenciais (segredos do repositório): `MAVEN_CENTRAL_USERNAME` e `MAVEN_CENTRAL_PASSWORD` (token do Central Portal),
