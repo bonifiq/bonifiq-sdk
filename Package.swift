@@ -5,9 +5,9 @@
 // O workflow de release (.github/workflows/release.yml) atualiza a versão e os checksums abaixo.
 import PackageDescription
 
-let version = "0.3.0"
-let bonifiqChecksum = "f4360431676c829a9bdde573d338052428b928f27a2306a13ed8a63cd0fee522"
-let bonifiqFitnessChecksum = "gerado na primeira release com o Fitness"
+let version = "0.4.0"
+let bonifiqChecksum = "b1933917d9cfa76f1ae1f19ec7fcdee28696194e24ae4995ba463e071032dce4"
+let bonifiqFitnessChecksum = "e00061ea781827521062711751bc398611d1fd360e10f46f2ae92cf26cefcb3d"
 
 let releases = "https://github.com/bonifiq/bonifiq-sdk/releases/download/\(version)"
 
