@@ -171,6 +171,9 @@ resultado ao widget.
 
 ## Fitness (opcional)
 
+> Guia completo, com a cobertura por fabricante, os comportamentos de cada plataforma, a publicação nas lojas e como
+> testar: [docs/fitness.md](docs/fitness.md).
+
 O módulo `bonifiq-fitness` lê os dados de atividade que o aparelho já reúne. Ele **só lê**: nada é gravado na
 plataforma de saúde nem enviado à BonifiQ.
 
@@ -275,8 +278,10 @@ Origem, GPS, batimentos e lançamento manual servem de base para validar desafio
 
 - Ative a capability **HealthKit** no target (Signing & Capabilities). Ela adiciona o entitlement
   `com.apple.developer.healthkit`, e o App ID precisa ter HealthKit no portal da Apple.
-- No `Info.plist`, adicione `NSHealthShareUsageDescription` com o motivo da leitura. Sem esse texto, o SDK lança
-  `FitnessException.Unavailable` em vez de deixar o HealthKit encerrar o app.
+- No `Info.plist`, adicione os **dois** textos, mesmo que o app só leia:
+  - `NSHealthShareUsageDescription`, com o motivo da leitura. Sem ele, o SDK lança `FitnessException.Unavailable`
+    em vez de deixar o HealthKit encerrar o app.
+  - `NSHealthUpdateUsageDescription`. Sem ele, a App Store Connect recusa o upload ("Missing purpose string").
 - Apps Swift usam o produto `BonifiQFitness` do Swift Package Manager:
 
   ```swift
