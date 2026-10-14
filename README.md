@@ -171,6 +171,9 @@ resultado ao widget.
 
 ## Fitness (opcional)
 
+> Guia completo, com a cobertura por fabricante, os comportamentos de cada plataforma, a publicação nas lojas e como
+> testar: [docs/fitness.md](docs/fitness.md).
+
 O módulo `bonifiq-fitness` lê os dados de atividade que o aparelho já reúne. Ele **só lê**: nada é gravado na
 plataforma de saúde nem enviado à BonifiQ.
 
