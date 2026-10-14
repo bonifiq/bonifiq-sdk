@@ -9,6 +9,10 @@ on:
       version:
         description: "Versão a publicar (igual ao bonifiq-sdk do libs.versions.toml, ex.: 0.3.0)"
         required: true
+      publish_maven:
+        description: "Enviar ao Maven Central. Desmarque para refazer só XCFrameworks, tag e Release quando o Central já recebeu esta versão."
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -52,13 +56,16 @@ jobs:
         run: ./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest :bonifiq-fitness:jvmTest --stacktrace
 
       - name: Publicar no Maven Central (aguarda o "Publish" no portal)
+        if: inputs.publish_maven
         run: ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace
 
       # Dois frameworks: BonifiQ (core + UI) e BonifiQFitness (o mesmo + Fitness/HealthKit). O app usa um dos dois.
+      # Um link por vez: os quatro links em modo release (2 frameworks x 2 alvos) em paralelo estouram a memória do Gradle.
       - name: Gerar os XCFrameworks
         run: |
           set -euo pipefail
-          ./gradlew :bonifiq-ui:assembleBonifiQReleaseXCFramework :bonifiq-ios-fitness:assembleBonifiQFitnessReleaseXCFramework --stacktrace
+          ./gradlew :bonifiq-ui:assembleBonifiQReleaseXCFramework --max-workers=1 --stacktrace
+          ./gradlew :bonifiq-ios-fitness:assembleBonifiQFitnessReleaseXCFramework --max-workers=1 --stacktrace
           (cd bonifiq-ui/build/XCFrameworks/release &&
             ditto -c -k --sequesterRsrc --keepParent BonifiQ.xcframework "$GITHUB_WORKSPACE/BonifiQ.xcframework.zip")
           (cd bonifiq-ios-fitness/build/XCFrameworks/release &&
