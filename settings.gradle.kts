@@ -30,3 +30,6 @@ dependencyResolutionManagement {
 
 include(":bonifiq-core")
 include(":bonifiq-ui")
+include(":bonifiq-fitness")
+// Só gera o XCFramework BonifiQFitness (core + UI + fitness) para o Swift Package Manager; não vai ao Maven.
+include(":bonifiq-ios-fitness")

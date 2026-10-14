@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- O Health Connect só existe a partir do Android 9 e o módulo checa a versão antes de usá-lo
+         (abaixo disso, availability() = Unsupported). Assim apps com minSdk 24 podem incluir o módulo. -->
+    <uses-sdk tools:overrideLibrary="androidx.health.connect.client" />
+
+    <!-- Leitura no Health Connect. Na Play Console, cada uma precisa constar na declaração de apps de saúde. -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+
+    <!-- Android 9 a 13: o Health Connect é um app da Play Store; o SDK precisa enxergá-lo para saber se está instalado.
+         Os demais são os apps de saúde do HealthAppCatalog: quando a leitura volta vazia, o SDK mostra como ligar
+         o envio ao Health Connect no app que o cliente tem. -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.sec.android.app.shealth" />
+        <package android:name="com.xiaomi.wearable" />
+        <package android:name="com.huami.watch.hmwatchmanager" />
+        <package android:name="com.garmin.android.apps.connectmobile" />
+        <package android:name="com.fitbit.FitbitMobile" />
+        <package android:name="com.google.android.apps.fitness" />
+        <package android:name="com.strava" />
+        <package android:name="com.xiaomi.hm.health" />
+        <package android:name="fi.polar.polarflow" />
+        <package android:name="com.ouraring.oura" />
+        <package android:name="com.withings.wiscale2" />
+        <package android:name="com.huawei.health" />
+    </queries>
+
+    <application>
+        <!-- Conduz o pedido de permissão do Health Connect (invisível). -->
+        <activity
+            android:name="br.com.bonifiq.sdk.fitness.FitnessPermissionActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Política de privacidade exigida pelo Health Connect. Android 13 ou anterior: -->
+        <activity
+            android:name="br.com.bonifiq.sdk.fitness.FitnessPrivacyPolicyActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android 14 ou mais novo: -->
+        <activity-alias
+            android:name="br.com.bonifiq.sdk.fitness.ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity="br.com.bonifiq.sdk.fitness.FitnessPrivacyPolicyActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Guarda o contexto do app ao iniciar, para o BonifiQFitness() funcionar sem receber Context. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="br.com.bonifiq.sdk.fitness.FitnessInitializer"
+                android:value="androidx.startup" />
+        </provider>
+    </application>
+</manifest>

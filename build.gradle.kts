@@ -28,7 +28,13 @@ subprojects {
             if (findProperty("signingInMemoryKey") != null) signAllPublications()
             coordinates("br.com.bonifiq", project.name, sdkVersion)
             pom {
-                name.set(if (project.name == "bonifiq-ui") "BonifiQ SDK UI" else "BonifiQ SDK Core")
+                name.set(
+                    when (project.name) {
+                        "bonifiq-ui" -> "BonifiQ SDK UI"
+                        "bonifiq-fitness" -> "BonifiQ SDK Fitness"
+                        else -> "BonifiQ SDK Core"
+                    },
+                )
                 description.set(provider { project.description ?: "" })
                 inceptionYear.set("2026")
                 url.set("https://github.com/bonifiq/bonifiq-sdk")
