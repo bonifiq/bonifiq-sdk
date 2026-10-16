@@ -3,6 +3,7 @@ package br.com.bonifiq.sdk
 import br.com.bonifiq.sdk.api.CheckoutApi
 import br.com.bonifiq.sdk.api.CustomerApi
 import br.com.bonifiq.sdk.api.ProgramApi
+import br.com.bonifiq.sdk.api.PushApi
 import br.com.bonifiq.sdk.api.RewardsApi
 import br.com.bonifiq.sdk.auth.BonifiQAuth
 import br.com.bonifiq.sdk.auth.SecureTokenManager
@@ -38,12 +39,15 @@ public class BonifiQ internal constructor(
     public val checkout: CheckoutApi = CheckoutApi(http, customer)
     public val program: ProgramApi = ProgramApi(http)
 
+    /** Aparelhos para push, usados pelo módulo opcional `bonifiq-push` (`BonifiQPush`). */
+    public val push: PushApi = PushApi(http)
+
     /** Libera o cliente HTTP. Depois disso a instância não pode mais ser usada. */
     public fun close() {
         http.close()
     }
 
     public companion object {
-        public const val VERSION: String = "0.4.0"
+        public const val VERSION: String = "0.5.0"
     }
 }

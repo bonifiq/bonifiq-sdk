@@ -174,6 +174,8 @@ class ApisTest {
         fake.sdk.program.appConfig()
 
         assertEquals("https://widget.bonifiq.com.br", config.widgetUrl)
+        assertFalse(config.pushEnabled, "servidor sem os campos de push")
+        assertNull(config.pushFirebaseProjectId)
         assertEquals("/pub/widget/app/config", fake.requests.single().path, "fica em memória")
         assertNull(fake.requests.single().token)
     }
