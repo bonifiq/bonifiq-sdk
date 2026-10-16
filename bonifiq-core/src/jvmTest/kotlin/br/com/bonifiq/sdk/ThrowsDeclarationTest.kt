@@ -3,6 +3,7 @@ package br.com.bonifiq.sdk
 import br.com.bonifiq.sdk.api.CheckoutApi
 import br.com.bonifiq.sdk.api.CustomerApi
 import br.com.bonifiq.sdk.api.ProgramApi
+import br.com.bonifiq.sdk.api.PushApi
 import br.com.bonifiq.sdk.api.RewardsApi
 import br.com.bonifiq.sdk.auth.BonifiQAuth
 import java.lang.reflect.Modifier
@@ -22,6 +23,7 @@ class ThrowsDeclarationTest {
         RewardsApi::class.java,
         CheckoutApi::class.java,
         ProgramApi::class.java,
+        PushApi::class.java,
     )
 
     @Test
@@ -34,7 +36,7 @@ class ThrowsDeclarationTest {
                     method.parameterTypes.lastOrNull() == Continuation::class.java
             }
         }
-        assertTrue(suspendFunctions.size >= 20, "esperava as funções públicas da API, achou ${suspendFunctions.size}")
+        assertTrue(suspendFunctions.size >= 23, "esperava as funções públicas da API, achou ${suspendFunctions.size}")
 
         val missing = suspendFunctions
             .filterNot { BonifiQException::class.java in it.exceptionTypes }

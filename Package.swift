@@ -1,6 +1,6 @@
 // swift-tools-version:5.9
-// SDK BonifiQ para iOS (Swift Package Manager). Use UM dos dois produtos; cada um já traz o core e a UI:
-// - BonifiQ: core + UI (hub, cashback, chip de saldo, login por código);
+// SDK BonifiQ para iOS (Swift Package Manager). Use UM dos dois produtos; cada um já traz o core, a UI e o push:
+// - BonifiQ: core + UI (hub, cashback, chip de saldo, login por código) + push (o app usa o Firebase iOS SDK);
 // - BonifiQFitness: o mesmo + o módulo Fitness (Apple Saúde). Exige a capability HealthKit no app.
 // O workflow de release (.github/workflows/release.yml) atualiza a versão e os checksums abaixo.
 import PackageDescription

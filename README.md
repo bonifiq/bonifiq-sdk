@@ -9,8 +9,9 @@ API key privada dentro do app.
 | `br.com.bonifiq:bonifiq-core` | API headless: login seguro, saldo, extrato, recompensas, cupons, cashback no checkout, regulamento. |
 | `br.com.bonifiq:bonifiq-ui` | Componentes prontos em Compose Multiplatform: hub "Meus pontos" (o widget web da BonifiQ num WebView), cashback do checkout, chip de saldo e login por código. Inclui o core. |
 | `br.com.bonifiq:bonifiq-fitness` | **Opcional.** Passos, treinos e batimentos do Health Connect (Android) e do Apple Saúde (iOS), com o fluxo de conexão pronto em Compose. Veja [Fitness](#fitness-opcional). |
+| `br.com.bonifiq:bonifiq-push` | **Opcional.** Notificações push do programa (pontos ganhos, recompensa disponível...) pelo Firebase Cloud Messaging do app, com o aparelho registrado no login e removido no logout. Veja [Push](#push-opcional). |
 
-Versão atual: `0.4.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulador arm64). Licença: [Apache 2.0](LICENSE).
+Versão atual: `0.5.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulador arm64). Licença: [Apache 2.0](LICENSE).
 
 ## Instalação
 
@@ -18,21 +19,22 @@ Versão atual: `0.4.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulado
 
 ```kotlin
 // build.gradle.kts (módulo KMP ou Android); o repositório mavenCentral() já vem nos projetos novos
-implementation("br.com.bonifiq:bonifiq-ui:0.4.0")       // ou só bonifiq-core
-implementation("br.com.bonifiq:bonifiq-fitness:0.4.0")  // opcional: dados de atividade física
+implementation("br.com.bonifiq:bonifiq-ui:0.5.0")       // ou só bonifiq-core
+implementation("br.com.bonifiq:bonifiq-fitness:0.5.0")  // opcional: dados de atividade física
+implementation("br.com.bonifiq:bonifiq-push:0.5.0")     // opcional: notificações push (Firebase)
 ```
 
 **iOS (Swift)**, pelo Swift Package Manager: no Xcode, **File → Add Package Dependencies** com a URL
 `https://github.com/bonifiq/bonifiq-sdk`, ou no `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/bonifiq/bonifiq-sdk", from: "0.4.0")
+.package(url: "https://github.com/bonifiq/bonifiq-sdk", from: "0.5.0")
 ```
 
 O pacote tem dois produtos (iOS 15 ou mais novo). Adicione **um** deles ao app, porque os dois juntos duplicam o SDK:
 
-- `BonifiQ`: core e UI.
-- `BonifiQFitness`: core, UI e o módulo Fitness. No Swift, `import BonifiQFitness` no lugar de `import BonifiQ`.
+- `BonifiQ`: core, UI e push.
+- `BonifiQFitness`: core, UI, push e o módulo Fitness. No Swift, `import BonifiQFitness` no lugar de `import BonifiQ`.
   Exige a capability HealthKit no app; veja [Fitness](#fitness-opcional).
 
 ## Uso rápido
@@ -292,10 +294,44 @@ Origem, GPS, batimentos e lançamento manual servem de base para validar desafio
   let passos = try await fitness.dailySteps(lastDays: 7)
   ```
 
+## Push (opcional)
+
+> Guia completo, com a configuração da loja no Firebase e no Google Cloud, a integração passo a passo e o que
+> conferir quando a notificação não chega: [docs/push.md](docs/push.md).
+
+O módulo `bonifiq-push` leva ao cliente as notificações do programa de fidelidade. A BonifiQ envia pelo Firebase
+Cloud Messaging do **projeto Firebase da loja**, o mesmo do app. Configuração única da loja:
+- no Firebase, os apps Android e iOS e a chave de APNs;
+- no Google Cloud (IAM), o papel **Firebase Cloud Messaging API Admin** para a conta de serviço da BonifiQ, cujo
+  e-mail aparece no painel;
+- no painel BonifiQ, em **Integrações → App (Push)**, o ID do projeto Firebase.
+
+```kotlin
+val push = BonifiQPush(bonifiq)   // uma instância por app, logo depois do BonifiQ
+
+push.requestPermission()          // Android 13+ e iOS: num momento que faça sentido para o cliente
+push.opens.collect { abrirHub() } // toque numa notificação da BonifiQ (PushOpen: type, target, isTest)
+```
+
+- **Ciclo de vida automático:** com o push ligado no painel, o SDK registra o aparelho no login do cliente, registra
+  de novo quando o token muda e remove no logout. A sessão expirada não remove o aparelho.
+- **Só as mensagens da BonifiQ** (marcadas com `bq=1`); as outras ficam com o app.
+- **Android:** o app configura o Firebase (`google-services.json` e o plugin `com.google.gms.google-services`); o SDK
+  lê o token, cria o canal de notificação e mostra a notificação com o app aberto. Na Activity de launcher, chame
+  `BonifiQPush.handleIntent(intent)` no `onCreate` e no `onNewIntent`. Se o app já tem um `FirebaseMessagingService`,
+  remova o do SDK e repasse a `BonifiQPush.onMessageReceived(message)` e `BonifiQPush.onNewToken(token)`.
+- **iOS:** sem Firebase dentro do framework. O app usa o Firebase iOS SDK, ativa a capability Push Notifications e
+  repassa o token e os toques:
+
+  ```swift
+  BonifiQPush.companion.setToken(token: fcmToken)                                  // MessagingDelegate
+  if BonifiQPush.companion.handleNotification(userInfo: userInfo) { abrirHub() }   // didReceive response
+  ```
+
 ## Desenvolvimento
 
 ```bash
-./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest :bonifiq-fitness:jvmTest
+./gradlew :bonifiq-core:jvmTest :bonifiq-ui:jvmTest :bonifiq-fitness:jvmTest :bonifiq-push:jvmTest
 ./gradlew publishToMavenLocal
 ```
 

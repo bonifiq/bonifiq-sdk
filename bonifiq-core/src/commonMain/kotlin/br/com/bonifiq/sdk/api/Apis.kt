@@ -188,7 +188,7 @@ public class ProgramApi internal constructor(private val http: WidgetHttp) {
 
     private var cachedAppConfig: AppConfig? = null
 
-    /** Config da loja para apps (URL do widget e se o hub em WebView está ligado). Fica em memória. */
+    /** Config da loja para apps (URL do widget e o push do programa). Fica em memória. */
     @Throws(BonifiQException::class, CancellationException::class)
     public suspend fun appConfig(forceRefresh: Boolean = false): AppConfig {
         cachedAppConfig?.takeUnless { forceRefresh }?.let { return it }

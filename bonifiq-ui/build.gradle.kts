@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -14,16 +13,9 @@ description = "BonifiQ SDK UI: hub de fidelidade (widget BonifiQ) e componentes 
 kotlin {
     explicitApi()
 
-    // Apps iOS nativos (SwiftUI/UIKit) consomem um único XCFramework "BonifiQ" com core + UI.
-    val xcFramework = XCFramework("BonifiQ")
-    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
-        target.binaries.framework {
-            baseName = "BonifiQ"
-            isStatic = true
-            export(projects.bonifiqCore)
-            xcFramework.add(this)
-        }
-    }
+    // Apps iOS nativos (SwiftUI/UIKit) usam o XCFramework "BonifiQ", gerado pelo módulo bonifiq-ios (core + UI + push).
+    iosArm64()
+    iosSimulatorArm64()
 
     jvm()
 
