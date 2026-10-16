@@ -304,7 +304,7 @@ Cloud Messaging do **projeto Firebase da loja**, o mesmo do app. Configuração 
 - no Firebase, os apps Android e iOS e a chave de APNs;
 - no Google Cloud (IAM), o papel **Firebase Cloud Messaging API Admin** para a conta de serviço da BonifiQ, cujo
   e-mail aparece no painel;
-- no painel BonifiQ, o ID do projeto Firebase.
+- no painel BonifiQ, em **Integrações → App (Push)**, o ID do projeto Firebase.
 
 ```kotlin
 val push = BonifiQPush(bonifiq)   // uma instância por app, logo depois do BonifiQ

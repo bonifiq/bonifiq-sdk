@@ -36,11 +36,13 @@ Faça uma vez por loja, antes de ligar o push no painel.
    Messaging → Configuração do app Apple, envie a chave com o Key ID e o Team ID. Sem ela, nada chega ao iPhone.
 4. **Permissão para a BonifiQ enviar:** no [Google Cloud Console](https://console.cloud.google.com), com o projeto
    do Firebase selecionado, abra **IAM e administrador → IAM → Conceder acesso**:
-   - **Novos principais:** a conta de serviço da BonifiQ. O e-mail dela aparece no painel BonifiQ, na configuração de
-     push.
+   - **Novos principais:** a conta de serviço da BonifiQ. O e-mail dela aparece no painel BonifiQ, em
+     **Integrações → App (Push)**, com um botão para copiar.
    - **Papel:** **Firebase Cloud Messaging API Admin**.
-5. **Painel BonifiQ:** informe o **ID do projeto** Firebase (em Configurações do projeto → Geral; ex.:
-   `minha-loja-app`, não o nome nem o número do projeto) e ligue o push.
+5. **Painel BonifiQ:** em **Integrações → App (Push)**, informe o **ID do projeto** Firebase (em Configurações do
+   projeto → Geral; ex.: `minha-loja-app`, não o nome nem o número do projeto), clique em **Testar conexão** e ligue o
+   push. O painel só liga o push com a conexão funcionando. Depois, em Comunicação, escolha quais avisos também vão
+   por push (todos começam desligados).
 
 ## Integração no app
 
