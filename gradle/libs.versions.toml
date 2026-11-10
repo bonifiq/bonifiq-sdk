@@ -1,5 +1,5 @@
 [versions]
-bonifiq-sdk = "0.4.0"
+bonifiq-sdk = "0.4.1"
 
 agp = "9.4.1"
 android-compileSdk = "37"
