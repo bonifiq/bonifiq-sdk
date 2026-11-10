@@ -25,6 +25,7 @@ public data class BonifiQStrings(
     public val cashbackNoBalance: String = "Você não tem saldo disponível para utilizar no momento.",
     public val cashbackIneligible: String = "Os produtos do seu carrinho são inelegíveis para cashback.",
     public val cashbackWillEarn: String = "Ao concluir essa compra, você ganhará %s de cashback",
+    public val cashbackAddToEarn: String = "Adicione mais %s para garantir cashback",
     public val emailLoginTitle: String = "Acesse com seu e-mail",
     public val emailLoginMessage: String = "Enviaremos um código de 6 dígitos para o seu e-mail.",
     public val emailLabel: String = "E-mail",

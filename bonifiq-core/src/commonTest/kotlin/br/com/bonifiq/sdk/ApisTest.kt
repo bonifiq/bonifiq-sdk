@@ -126,7 +126,7 @@ class ApisTest {
 
         val earnings = anonymous.sdk.checkout.purchaseEarnings("of-123", 150.0)
 
-        assertEquals(150, earnings.points)
+        assertEquals(150L, earnings.points)
         assertEquals(7.5, earnings.cashback)
         assertEquals(1.0, earnings.minCartValue)
         assertTrue(earnings.hasPurchaseObjective)
@@ -145,8 +145,11 @@ class ApisTest {
 
     @Test
     fun purchaseEarningsWithoutCashbackProgramHasNullCashback() = runTest {
-        val fake = FakeBonifiQ { json(envelope("""{"MinValueToReceive":1.0,"PurchasePoints":150,"PurchaseCashback":null,"HasPurchaseObjective":true}""")) }
-        assertNull(fake.sdk.checkout.purchaseEarnings("of-123", 150.0).cashback)
+        // Pontos com casa decimal, como outros endpoints mandam: lidos como os demais campos de pontos do SDK.
+        val fake = FakeBonifiQ { json(envelope("""{"MinValueToReceive":1.0,"PurchasePoints":150.0,"PurchaseCashback":null,"HasPurchaseObjective":true}""")) }
+        val earnings = fake.sdk.checkout.purchaseEarnings("of-123", 150.0)
+        assertNull(earnings.cashback)
+        assertEquals(150L, earnings.points)
     }
 
     @Test

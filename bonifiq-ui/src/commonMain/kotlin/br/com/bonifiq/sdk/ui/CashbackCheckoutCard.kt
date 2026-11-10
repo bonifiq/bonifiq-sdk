@@ -1,9 +1,11 @@
 package br.com.bonifiq.sdk.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +17,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,7 +37,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import br.com.bonifiq.sdk.BonifiQ
 import br.com.bonifiq.sdk.auth.AuthState
@@ -64,9 +72,9 @@ public enum class CashbackAmount {
  * Bloco de cashback para o checkout: mostra saldo e quanto pode ser usado no carrinho, aplica e remove o cashback.
  * Não aparece se o programa não usa cashback.
  *
- * Como no checkout web da BonifiQ, destaca quanto o cliente ganha de cashback ao concluir a compra, inclusive quando
- * ele ainda não tem saldo para usar. O destaque some se a compra não gera cashback (ex.: sem o objetivo de compra
- * ativo ou abaixo do valor mínimo).
+ * Como no checkout web da BonifiQ, quando o cliente não tem cashback para usar nesta compra, o card diz quanto ele
+ * ganha de cashback ao concluí-la ou, abaixo do valor mínimo, quanto falta no carrinho para ganhar. Nada disso aparece
+ * se a compra não gera cashback (ex.: sem o objetivo de compra ativo) nem quando há saldo para usar.
  *
  * Depois de aplicar ou remover, [onCartChanged] é chamado: recarregue o carrinho da plataforma (o desconto é
  * aplicado pela BonifiQ direto no carrinho). Se a BonifiQ devolver um cupom, ele chega em [onApplyCoupon].
@@ -109,6 +117,9 @@ public fun CashbackCheckoutCard(
 
         LaunchedEffect(cartId, cartTotal, authenticated, reload) {
             if (!authenticated) return@LaunchedEffect
+            // Em paralelo com as outras consultas: o ganho aparece junto com o saldo, sem a tela "pular".
+            // Sem a estimativa, o card não mostra o ganho (nunca um "R$ 0,00").
+            launch { earnings = attempt { bonifiq.checkout.purchaseEarnings(cartId, cartTotal) }.getOrNull() }
             attempt { bonifiq.checkout.cashbackOptions(cartId, cartTotal) }
                 .onSuccess {
                     options = it
@@ -119,8 +130,6 @@ public fun CashbackCheckoutCard(
                 .onFailure { error = it.userMessage }
             // Se a consulta falhar, fica o último estado conhecido: o "Remover" não pode sumir com o cashback aplicado.
             attempt { bonifiq.checkout.appliedCashback(cartId) }.onSuccess { applied = it }
-            // Sem a estimativa, o card não mostra o ganho (nunca um "R$ 0,00").
-            earnings = attempt { bonifiq.checkout.purchaseEarnings(cartId, cartTotal) }.getOrNull()
         }
 
         fun run(action: suspend () -> Unit) {
@@ -241,10 +250,17 @@ public fun CashbackCheckoutCard(
                                     Text(htmlToAnnotatedString(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                        }
-                        earnedCashback(earnings, cartTotal)?.let {
-                            // Espaço não separável: o "R$" não fica numa linha e o valor na outra.
-                            EarnHighlight(strings.cashbackWillEarn.fill(formatMoney(it).replace(' ', '\u00A0')))
+                            // Quanto a compra rende ou quanto falta para render. Com saldo para usar, o web não mostra:
+                            // o ganho é do carrinho cheio e muda ao aplicar o cashback.
+                            val earned = earnedCashback(earnings, cartTotal)
+                            val missing = missingToEarnCashback(earnings, cartTotal)
+                            when {
+                                earned != null -> EarnHighlight(strings.cashbackWillEarn.fill(moneyNoBreak(earned)))
+                                missing != null -> MissingToEarn(
+                                    boldFill(strings.cashbackAddToEarn, moneyNoBreak(missing)),
+                                    progress = earnings?.minCartValue?.takeIf { it > 0 }?.let { (cartTotal / it).toFloat() } ?: 0f,
+                                )
+                            }
                         }
                     }
                 }
@@ -260,6 +276,46 @@ internal fun earnedCashback(earnings: PurchaseEarnings?, cartTotal: Double): Dou
     val cashback = earnings?.cashback ?: return null
     if (!earnings.hasPurchaseObjective || cartTotal < earnings.minCartValue) return null
     return cashback.takeIf { round(it * 100) > 0 }
+}
+
+/** Quanto falta no carrinho para a compra gerar cashback, ou `null` se já alcançou o mínimo ou não há o que mostrar. */
+internal fun missingToEarnCashback(earnings: PurchaseEarnings?, cartTotal: Double): Double? {
+    if (earnings?.cashback == null || !earnings.hasPurchaseObjective) return null
+    return (earnings.minCartValue - cartTotal).takeIf { round(it * 100) > 0 }
+}
+
+/** Valor em reais com espaço não separável: o "R$" não fica numa linha e o valor na outra. */
+private fun moneyNoBreak(value: Double): String = formatMoney(value).replace(' ', '\u00A0')
+
+/** [template] com o `%s` trocado por [value] em negrito, como o `<strong>` do checkout web. */
+private fun boldFill(template: String, value: String): AnnotatedString = buildAnnotatedString {
+    val at = template.indexOf("%s")
+    if (at < 0) {
+        append(template)
+    } else {
+        append(template.substring(0, at))
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(value) }
+        append(template.substring(at + 2))
+    }
+}
+
+/** Quanto falta para ganhar cashback, com a barra de progresso do carrinho até o mínimo, como no checkout web. */
+@Composable
+private fun MissingToEarn(text: AnnotatedString, progress: Float) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text, style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(
+                progress = { progress.coerceIn(0.01f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(8.dp),
+            )
+        }
+    }
 }
 
 /** Destaque verde do ganho, nas cores do alerta de sucesso do checkout web. */

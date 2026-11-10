@@ -1,5 +1,6 @@
 package br.com.bonifiq.sdk.model
 
+import br.com.bonifiq.sdk.internal.FlexibleLongSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -44,7 +45,8 @@ public data class CashbackOptions(
 @Serializable
 public data class PurchaseEarnings(
     /** Pontos que a compra gera. */
-    @SerialName("PurchasePoints") public val points: Int = 0,
+    @Serializable(with = FlexibleLongSerializer::class)
+    @SerialName("PurchasePoints") public val points: Long = 0,
     /** Cashback que a compra gera; `null` se o programa não usa cashback. */
     @SerialName("PurchaseCashback") public val cashback: Double? = null,
     /** Valor mínimo da compra para ganhar. */

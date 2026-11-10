@@ -65,7 +65,10 @@ class LoyaltyUiTest {
 
         waitForText("Usar R$ 75,00 de cashback")
         waitForText("1.500 Coins")
-        waitForText("Ao concluir essa compra, você ganhará R$\u00A07,50 de cashback")
+        // Com saldo para usar, como no web, o card não mostra quanto a compra rende.
+        waitUntil(timeoutMillis = 10_000) { server.purchaseEarningsRequests > 0 }
+        waitForIdle()
+        assertTrue(onAllNodesWithText("ganhará", substring = true).fetchSemanticsNodes().isEmpty())
         snapshot("cashback-01-tudo")
 
         onNodeWithText("Usar R$ 75,00 de cashback").performClick()
@@ -150,6 +153,30 @@ class LoyaltyUiTest {
         waitForIdle()
         assertTrue(onAllNodesWithText("ganhará", substring = true).fetchSemanticsNodes().isEmpty())
         assertTrue(onAllNodesWithText("receberá", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    /** Abaixo do valor mínimo: diz quanto falta para ganhar cashback, com a barra de progresso, como no checkout web. */
+    @Test
+    fun cashbackBelowMinimumShowsHowMuchIsMissing() = runDesktopComposeUiTest(width = 412, height = 400) {
+        val server = FakeBonifiQServer(balance = 0)
+        server.purchaseEarnings = """{"MinValueToReceive":200.0,"PurchasePoints":0,"PurchaseCashback":0.0,"HasPurchaseObjective":true}"""
+        server.sdk.auth.loginWithVtex { VtexSessionTokens("s", "g") }
+        setContent { Host { Column(Modifier.padding(16.dp)) { CashbackCheckoutCard(server.sdk, cartId = "of-123", cartTotal = 150.0, onCartChanged = {}) } } }
+
+        waitForText("Você não tem saldo disponível para utilizar no momento.")
+        waitForText("Adicione mais R$\u00A050,00 para garantir cashback")
+        snapshot("cashback-05-abaixo-do-minimo")
+        assertTrue(onAllNodesWithText("ganhará", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun missingToEarnCashbackOnlyBelowTheMinimum() {
+        val earns = PurchaseEarnings(points = 0, cashback = 0.0, minCartValue = 200.0, hasPurchaseObjective = true)
+        assertEquals(50.0, missingToEarnCashback(earns, cartTotal = 150.0))
+        assertNull(missingToEarnCashback(earns, cartTotal = 200.0), "já alcançou o mínimo")
+        assertNull(missingToEarnCashback(null, cartTotal = 150.0), "sem a estimativa")
+        assertNull(missingToEarnCashback(earns.copy(hasPurchaseObjective = false), cartTotal = 150.0), "sem objetivo de compra")
+        assertNull(missingToEarnCashback(earns.copy(cashback = null), cartTotal = 150.0), "programa sem cashback")
     }
 
     /** Carrinho com produtos sem direito a cashback: mostra o saldo e o motivo, sem o botão de usar. */
