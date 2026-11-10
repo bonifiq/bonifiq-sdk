@@ -55,7 +55,8 @@ resto é automático:
 | O cliente faz login | Registra o token do aparelho para o cliente, com o SecureToken. |
 | O token muda | Registra o token novo. O mesmo token e o mesmo cliente não são registrados duas vezes na sessão. |
 | A sessão expira | Nada: o aparelho continua do cliente até o logout. |
-| O cliente faz logout (`bonifiq.auth.logout()`) | Remove o aparelho, sem SecureToken (ele pode já ter expirado). |
+| O cliente faz logout (`bonifiq.auth.logout()`) | Remove o aparelho, sem SecureToken (ele pode já ter expirado). Vale também com o app reaberto e o SDK ainda sem login: chame o `logout()` do SDK em todo logout do app. |
+| Falha passageira (sem rede, timeout, erro do servidor) | Tenta de novo com espera crescente (5 s, 15 s, 1 min, 5 min, depois a cada 15 min). A remoção pendente fica guardada no aparelho e é retomada na próxima abertura do app. Um novo login com o mesmo token cancela a remoção pendente. |
 | Chega uma notificação com o app aberto | Android: o SDK mostra a notificação (o FCM só mostra sozinho em segundo plano). iOS: veja `willPresent` abaixo. |
 | O cliente toca na notificação | Registra a abertura na BonifiQ e emite em `push.opens`. |
 

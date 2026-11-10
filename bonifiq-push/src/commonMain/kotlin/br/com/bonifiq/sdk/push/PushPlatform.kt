@@ -15,6 +15,12 @@ internal interface PushPlatform {
     /** Idioma do aparelho (ex.: `pt-BR`). */
     val locale: String?
 
+    /**
+     * Token cuja remoção na BonifiQ ainda não foi confirmada (ex.: logout sem rede). Fica guardado no aparelho para a
+     * remoção ser retomada depois de o app ser fechado.
+     */
+    var pendingRemoval: String?
+
     /** Começa a acompanhar o token. No Android, pede o token atual ao Firebase; no iOS, o app entrega o token. */
     fun start()
 

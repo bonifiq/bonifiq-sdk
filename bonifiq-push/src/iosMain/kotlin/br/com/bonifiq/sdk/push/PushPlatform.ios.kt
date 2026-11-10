@@ -8,6 +8,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSBundle
 import platform.Foundation.NSLocale
 import platform.Foundation.NSURL
+import platform.Foundation.NSUserDefaults
 import platform.Foundation.currentLocale
 import platform.Foundation.localeIdentifier
 import platform.UIKit.UIApplication
@@ -47,6 +48,15 @@ internal object IosPushPlatform : PushPlatform {
     // localeIdentifier vem como "pt_BR" (às vezes com "@calendar=..."); a BonifiQ espera "pt-BR".
     override val locale: String
         get() = NSLocale.currentLocale.localeIdentifier.substringBefore('@').replace('_', '-')
+
+    private const val PENDING_REMOVAL = "br.com.bonifiq.sdk.push.pendingRemoval"
+
+    override var pendingRemoval: String?
+        get() = NSUserDefaults.standardUserDefaults.stringForKey(PENDING_REMOVAL)
+        set(value) {
+            val defaults = NSUserDefaults.standardUserDefaults
+            if (value == null) defaults.removeObjectForKey(PENDING_REMOVAL) else defaults.setObject(value, forKey = PENDING_REMOVAL)
+        }
 
     override fun start() = Unit
 

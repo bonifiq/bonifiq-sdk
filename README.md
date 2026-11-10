@@ -315,7 +315,8 @@ push.opens.collect { abrirHub() } // toque numa notificação da BonifiQ (PushOp
 ```
 
 - **Ciclo de vida automático:** com o push ligado no painel, o SDK registra o aparelho no login do cliente, registra
-  de novo quando o token muda e remove no logout. A sessão expirada não remove o aparelho.
+  de novo quando o token muda e remove no logout (inclusive com o app reaberto e o SDK sem login). A sessão expirada
+  não remove o aparelho. Falhas passageiras são repetidas sozinhas, e a remoção pendente sobrevive ao app fechado.
 - **Só as mensagens da BonifiQ** (marcadas com `bq=1`); as outras ficam com o app.
 - **Android:** o app configura o Firebase (`google-services.json` e o plugin `com.google.gms.google-services`); o SDK
   lê o token, cria o canal de notificação e mostra a notificação com o app aberto. Na Activity de launcher, chame

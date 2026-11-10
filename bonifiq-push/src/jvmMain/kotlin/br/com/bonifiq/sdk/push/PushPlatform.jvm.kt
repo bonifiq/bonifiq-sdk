@@ -14,6 +14,7 @@ internal object UnsupportedPushPlatform : PushPlatform {
     override val appId: String? = null
     override val appVersion: String? = null
     override val locale: String? = null
+    override var pendingRemoval: String? = null
     override fun start() = Unit
     override fun onPushConfig(config: AppConfig) = Unit
     override suspend fun permissionStatus(): PushPermissionStatus = PushPermissionStatus.Denied

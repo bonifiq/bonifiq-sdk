@@ -33,11 +33,21 @@ class FakePushServer(
     /** `customer/info` responde 401: com login por código, a sessão vira `Expired`. */
     var rejectToken = false
 
+    private val failures = mutableMapOf<String, ArrayDeque<Int>>()
+
+    /** As próximas chamadas a [path] respondem com estes status, um por chamada (ex.: 503 = BonifiQ fora do ar). */
+    fun failNext(path: String, vararg statuses: Int) {
+        synchronized(failures) { failures.getOrPut(path) { ArrayDeque() }.addAll(statuses.toList()) }
+    }
+
     val engine = MockEngine { request ->
         val path = request.url.encodedPath.removePrefix("/pub/widget/")
         val text = request.body.toByteArray().decodeToString()
         val body = text.takeIf { it.isNotBlank() }?.let { Json.parseToJsonElement(it).jsonObject }
         requests.update { it + Request(path, request.headers["X-Bq-SecureToken"], request.headers["X-Bq-Tenant"], body) }
+        synchronized(failures) { failures[path]?.removeFirstOrNull() }?.let { status ->
+            return@MockEngine respond("""{"Message":"Falha simulada"}""", HttpStatusCode.fromValue(status))
+        }
         val json = when (path) {
             "vendors/vtex/securelogin" -> env(login("cliente@teste.com", "user-1"))
             "account/validatechallenge" -> env(login(null, "user-2"))
@@ -86,6 +96,7 @@ class FakePushPlatform(override val name: String? = "android") : PushPlatform {
     override val appId: String = "com.loja.app"
     override val appVersion: String = "3.2.1"
     override val locale: String = "pt-BR"
+    override var pendingRemoval: String? = null
 
     var started = 0
     val pushConfigs = mutableListOf<AppConfig>()

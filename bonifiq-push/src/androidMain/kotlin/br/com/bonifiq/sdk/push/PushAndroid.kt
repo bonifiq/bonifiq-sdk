@@ -80,6 +80,7 @@ internal object PushPrefs {
     private const val CHANNEL_ID = "channel_id"
     private const val CHANNEL_NAME = "channel_name"
     private const val PERMISSION_ASKED = "permission_asked"
+    private const val PENDING_REMOVAL = "pending_removal"
 
     private fun prefs(context: Context) = context.getSharedPreferences("br.com.bonifiq.sdk.push", Context.MODE_PRIVATE)
 
@@ -95,5 +96,14 @@ internal object PushPrefs {
 
     fun setPermissionAsked(context: Context) {
         prefs(context).edit().putBoolean(PERMISSION_ASKED, true).apply()
+    }
+
+    fun pendingRemoval(context: Context): String? = prefs(context).getString(PENDING_REMOVAL, null)
+
+    /** `commit`, não `apply`: a remoção pendente precisa estar gravada mesmo se o app for fechado logo depois. */
+    fun savePendingRemoval(context: Context, token: String?) {
+        val editor = prefs(context).edit()
+        if (token == null) editor.remove(PENDING_REMOVAL) else editor.putString(PENDING_REMOVAL, token)
+        editor.commit()
     }
 }

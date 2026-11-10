@@ -7,6 +7,7 @@ import br.com.bonifiq.sdk.auth.VtexSessionTokens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -18,6 +19,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 class BonifiQPushTest {
 
@@ -35,7 +37,12 @@ class BonifiQPushTest {
     }
 
     private fun push(server: FakePushServer, platform: PushPlatform = FakePushPlatform()): BonifiQPush =
-        BonifiQPush(server.sdk, platform, CoroutineScope(SupervisorJob() + Dispatchers.Default)).also { created += it }
+        BonifiQPush(
+            server.sdk,
+            platform,
+            CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            retryDelays = listOf(20.milliseconds),
+        ).also { created += it }
 
     private suspend fun BonifiQ.loginVtex() {
         auth.loginWithVtex { VtexSessionTokens("s", "g") }
@@ -105,6 +112,121 @@ class BonifiQPushTest {
         server.await("push/devices/unregister", count = 2)
         push.awaitIdle()
         assertEquals(2, server.calls("push/devices/unregister").size)
+    }
+
+    /** App reaberto: o SDK não logou nesta execução, mas o logout do app ainda remove o aparelho. */
+    @Test
+    fun logoutAfterReopeningTheAppRemovesTheDevice() = runBlocking {
+        val server = FakePushServer()
+        BonifiQPush.setToken("fcm-1")
+        val push = push(server)
+        push.awaitIdle()
+        assertTrue(server.calls("push/devices/unregister").isEmpty(), "abrir o app não é logout")
+
+        server.sdk.auth.logout()
+
+        assertEquals("fcm-1", server.await("push/devices/unregister").single().field("Token"))
+    }
+
+    @Test
+    fun logoutBeforeTheTokenArrivesRemovesItWhenItArrives() = runBlocking {
+        val server = FakePushServer()
+        val push = push(server)
+        server.sdk.auth.logout()
+        push.awaitIdle()
+        assertTrue(server.calls("push/devices/unregister").isEmpty(), "ainda sem token")
+
+        BonifiQPush.setToken("fcm-1")
+
+        assertEquals("fcm-1", server.await("push/devices/unregister").single().field("Token"))
+    }
+
+    /** Logout sem rede: a remoção fica pendente, guardada no aparelho, até a BonifiQ confirmar. */
+    @Test
+    fun failedRemovalIsRetriedUntilConfirmed() = runBlocking {
+        val server = FakePushServer()
+        BonifiQPush.setToken("fcm-1")
+        val platform = FakePushPlatform()
+        val push = push(server, platform)
+        server.sdk.loginVtex()
+        server.await("push/devices")
+        push.awaitIdle()
+
+        server.failNext("push/devices/unregister", 503, 503)
+        server.sdk.auth.logout()
+
+        server.await("push/devices/unregister", count = 3)
+        push.awaitIdle()
+        assertNull(platform.pendingRemoval, "confirmada, sai do aparelho")
+        assertTrue(server.calls("push/devices/unregister").all { it.field("Token") == "fcm-1" })
+    }
+
+    /** O app foi fechado com a remoção pendente: ela termina na próxima abertura, sem login. */
+    @Test
+    fun pendingRemovalFromThePreviousRunIsFinished() = runBlocking {
+        val server = FakePushServer()
+        val platform = FakePushPlatform().apply { pendingRemoval = "fcm-antigo" }
+        BonifiQPush.setToken("fcm-1")
+        val push = push(server, platform)
+
+        assertEquals("fcm-antigo", server.await("push/devices/unregister").single().field("Token"))
+        push.awaitIdle()
+        assertNull(platform.pendingRemoval)
+        assertTrue(server.calls("push/devices").isEmpty())
+    }
+
+    /** Novo login com o mesmo token antes de a remoção sair: o aparelho fica com o novo login, sem remoção atrasada. */
+    @Test
+    fun newLoginWithTheSameTokenCancelsThePendingRemoval() = runBlocking {
+        val server = FakePushServer()
+        val platform = FakePushPlatform().apply { pendingRemoval = "fcm-1" }
+        server.failNext("push/devices/unregister", *IntArray(1_000) { 503 })
+        BonifiQPush.setToken("fcm-1")
+        val push = push(server, platform)
+        server.await("push/devices/unregister")
+
+        server.sdk.loginVtex()
+        assertEquals("fcm-1", server.await("push/devices").single().field("Token"))
+        push.awaitIdle()
+        assertNull(platform.pendingRemoval)
+
+        val removals = server.calls("push/devices/unregister").size
+        delay(200)
+        assertEquals(removals, server.calls("push/devices/unregister").size, "a remoção parou")
+    }
+
+    /** Uma falha passageira na config ou no registro não deixa o cliente sem push a sessão inteira. */
+    @Test
+    fun failedConfigOrRegistrationIsRetried() = runBlocking {
+        val server = FakePushServer()
+        server.failNext("app/config", 503, 503)
+        server.failNext("push/devices", 503, 500)
+        BonifiQPush.setToken("fcm-1")
+        val push = push(server)
+        push.awaitIdle() // sem cliente: lê a config uma vez, sem repetir
+
+        server.sdk.loginVtex()
+
+        server.await("push/devices", count = 3)
+        push.awaitIdle()
+        assertEquals(3, server.calls("app/config").size)
+        server.sdk.auth.logout()
+        assertEquals("fcm-1", server.await("push/devices/unregister").single().field("Token"), "registrado: o logout remove")
+    }
+
+    @Test
+    fun rejectedRegistrationIsNotRetried() = runBlocking {
+        val server = FakePushServer()
+        server.failNext("push/devices", 400)
+        BonifiQPush.setToken("fcm-1")
+        val push = push(server)
+
+        server.sdk.loginVtex()
+        server.await("push/devices")
+        push.awaitIdle()
+        delay(100)
+
+        assertEquals(1, server.calls("push/devices").size)
     }
 
     @Test

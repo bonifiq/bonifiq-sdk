@@ -7,7 +7,10 @@ import br.com.bonifiq.sdk.internal.WidgetHttp
 import br.com.bonifiq.sdk.internal.jsonBody
 import io.ktor.http.HttpMethod
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -26,6 +29,15 @@ public class BonifiQAuth internal constructor(
     public val state: StateFlow<AuthState> get() = tokens.state
 
     public val isAuthenticated: Boolean get() = tokens.state.value is AuthState.Authenticated
+
+    private val logoutCount = MutableStateFlow(0)
+
+    /**
+     * Quantas vezes o app chamou [logout] nesta execução, mesmo sem sessão aberta. O módulo de push remove o aparelho a
+     * cada logout, inclusive quando o app foi reaberto e o SDK ainda não tinha logado.
+     */
+    @BonifiQInternalApi
+    public val logouts: StateFlow<Int> = logoutCount.asStateFlow()
 
     /**
      * Autentica com a sessão VTEX do cliente. [sessionTokens] é chamado agora e de novo a cada renovação
@@ -91,5 +103,6 @@ public class BonifiQAuth internal constructor(
     public fun logout() {
         tokens.clear()
         onSessionCleared()
+        logoutCount.update { it + 1 }
     }
 }

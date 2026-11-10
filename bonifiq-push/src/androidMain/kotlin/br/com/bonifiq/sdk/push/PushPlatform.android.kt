@@ -29,6 +29,12 @@ internal object AndroidPushPlatform : PushPlatform {
 
     override val locale: String get() = Locale.getDefault().toLanguageTag()
 
+    override var pendingRemoval: String?
+        get() = PushAndroid.contextOrNull?.let(PushPrefs::pendingRemoval)
+        set(value) {
+            PushAndroid.contextOrNull?.let { PushPrefs.savePendingRemoval(it, value) }
+        }
+
     // O token de registro está obsoleto desde o firebase-messaging 25.1 (veja BonifiQMessagingService), mas é o que a
     // BonifiQ usa para enviar e continua no 26.
     @Suppress("DEPRECATION")
