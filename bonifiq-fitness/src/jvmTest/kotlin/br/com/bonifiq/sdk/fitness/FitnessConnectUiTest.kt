@@ -19,8 +19,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
@@ -44,7 +44,8 @@ class FitnessConnectUiTest {
     )
     private val huawei = HealthApp("com.huawei.health", "Huawei Health", syncsWithHealthPlatform = false, emptyList())
 
-    private val someSteps = listOf(DailySteps(LocalDate(2026, 10, 13), 4230, emptyList()))
+    // Hoje: a tela só lê os últimos dias, então uma data fixa sai da janela com o tempo.
+    private val someSteps = listOf(DailySteps(Clock.System.todayIn(TimeZone.currentSystemDefault()), 4230, emptyList()))
 
     @Test
     fun connectingShowsTheData() = runDesktopComposeUiTest(width = 412, height = 640) {

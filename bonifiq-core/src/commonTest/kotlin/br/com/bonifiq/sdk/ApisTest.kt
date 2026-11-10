@@ -120,6 +120,39 @@ class ApisTest {
     }
 
     @Test
+    fun purchaseEarningsIsPublicAndSendsTheCart() = runTest {
+        val earningsJson = envelope("""{"MinValueToReceive":1.0,"PurchasePoints":150,"PurchaseCashback":7.5,"HasPurchaseObjective":true}""")
+        val anonymous = FakeBonifiQ { json(earningsJson) }
+
+        val earnings = anonymous.sdk.checkout.purchaseEarnings("of-123", 150.0)
+
+        assertEquals(150L, earnings.points)
+        assertEquals(7.5, earnings.cashback)
+        assertEquals(1.0, earnings.minCartValue)
+        assertTrue(earnings.hasPurchaseObjective)
+        val request = anonymous.requests.single()
+        assertEquals("GET", request.method)
+        assertEquals("/pub/widget/rewards/checkout/purchase-points", request.path)
+        assertEquals("of-123", request.param("checkoutCode"))
+        assertEquals(150.0, request.param("purchaseValue")!!.toDouble())
+        assertNull(request.token)
+
+        // Logado, manda o token: o ganho considera o nível do cliente.
+        val logged = loggedIn { json(earningsJson) }
+        logged.sdk.checkout.purchaseEarnings("of-123", 150.0)
+        assertEquals("tok", logged.requests.single().token)
+    }
+
+    @Test
+    fun purchaseEarningsWithoutCashbackProgramHasNullCashback() = runTest {
+        // Pontos com casa decimal, como outros endpoints mandam: lidos como os demais campos de pontos do SDK.
+        val fake = FakeBonifiQ { json(envelope("""{"MinValueToReceive":1.0,"PurchasePoints":150.0,"PurchaseCashback":null,"HasPurchaseObjective":true}""")) }
+        val earnings = fake.sdk.checkout.purchaseEarnings("of-123", 150.0)
+        assertNull(earnings.cashback)
+        assertEquals(150L, earnings.points)
+    }
+
+    @Test
     fun appliedCashbackIsNullWhenNothingApplied() = runTest {
         val fake = loggedIn { json("""{"AppliedCashback":0,"Success":false}""") }
         assertNull(fake.sdk.checkout.appliedCashback("of-123"))
