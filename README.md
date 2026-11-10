@@ -10,7 +10,7 @@ API key privada dentro do app.
 | `br.com.bonifiq:bonifiq-ui` | Componentes prontos em Compose Multiplatform: hub "Meus pontos" (o widget web da BonifiQ num WebView), cashback do checkout, chip de saldo e login por código. Inclui o core. |
 | `br.com.bonifiq:bonifiq-fitness` | **Opcional.** Passos, treinos e batimentos do Health Connect (Android) e do Apple Saúde (iOS), com o fluxo de conexão pronto em Compose. Veja [Fitness](#fitness-opcional). |
 
-Versão atual: `0.4.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulador arm64). Licença: [Apache 2.0](LICENSE).
+Versão atual: `0.4.1`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulador arm64). Licença: [Apache 2.0](LICENSE).
 
 ## Instalação
 
@@ -18,15 +18,15 @@ Versão atual: `0.4.0`. Targets: Android (minSdk 24), JVM, iOS (arm64 e simulado
 
 ```kotlin
 // build.gradle.kts (módulo KMP ou Android); o repositório mavenCentral() já vem nos projetos novos
-implementation("br.com.bonifiq:bonifiq-ui:0.4.0")       // ou só bonifiq-core
-implementation("br.com.bonifiq:bonifiq-fitness:0.4.0")  // opcional: dados de atividade física
+implementation("br.com.bonifiq:bonifiq-ui:0.4.1")       // ou só bonifiq-core
+implementation("br.com.bonifiq:bonifiq-fitness:0.4.1")  // opcional: dados de atividade física
 ```
 
 **iOS (Swift)**, pelo Swift Package Manager: no Xcode, **File → Add Package Dependencies** com a URL
 `https://github.com/bonifiq/bonifiq-sdk`, ou no `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/bonifiq/bonifiq-sdk", from: "0.4.0")
+.package(url: "https://github.com/bonifiq/bonifiq-sdk", from: "0.4.1")
 ```
 
 O pacote tem dois produtos (iOS 15 ou mais novo). Adicione **um** deles ao app, porque os dois juntos duplicam o SDK:
