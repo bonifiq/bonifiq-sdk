@@ -85,7 +85,7 @@ para a tela "Conexão Saúde". Por isso o caminho aparece escrito no cartão.
 
 ### Android
 
-1. **Dependência:** `implementation("br.com.bonifiq:bonifiq-fitness:0.4.0")`.
+1. **Dependência:** `implementation("br.com.bonifiq:bonifiq-fitness:0.5.0")`.
 2. **Política de privacidade:** a URL vai no `AndroidManifest.xml` do app, dentro de `<application>`. Ela precisa
    ser a mesma do Google Play:
    ```xml
