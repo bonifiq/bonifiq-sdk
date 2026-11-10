@@ -131,6 +131,20 @@ class AuthTest {
         assertTrue(fake.requests.isEmpty())
     }
 
+    @OptIn(BonifiQInternalApi::class)
+    @Test
+    fun everyLogoutIsCountedEvenWithoutSession() = runTest {
+        val fake = FakeBonifiQ { json(secureLogin("t")) }
+        assertEquals(0, fake.sdk.auth.logouts.value)
+
+        fake.sdk.auth.logout() // já sem sessão (ex.: app reaberto): o push ainda precisa saber
+        assertEquals(1, fake.sdk.auth.logouts.value)
+
+        fake.sdk.auth.loginWithVtex { VtexSessionTokens("s", "g") }
+        fake.sdk.auth.logout()
+        assertEquals(2, fake.sdk.auth.logouts.value)
+    }
+
     @Test
     fun logoutClearsSessionAndSummary() = runTest {
         val fake = FakeBonifiQ { request ->

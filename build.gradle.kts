@@ -32,6 +32,7 @@ subprojects {
                     when (project.name) {
                         "bonifiq-ui" -> "BonifiQ SDK UI"
                         "bonifiq-fitness" -> "BonifiQ SDK Fitness"
+                        "bonifiq-push" -> "BonifiQ SDK Push"
                         else -> "BonifiQ SDK Core"
                     },
                 )
