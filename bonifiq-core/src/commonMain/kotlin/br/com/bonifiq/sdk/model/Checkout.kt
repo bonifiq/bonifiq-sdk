@@ -24,13 +24,33 @@ public data class CashbackOptions(
     @SerialName("CanUse") public val canUse: Boolean = false,
     @SerialName("IsCashbackAvailable") public val isAvailable: Boolean = false,
     @SerialName("CashbackRules") public val rules: String? = null,
-    /** Ex.: "Você receberá R$ 5,00 de cashback nesta compra". */
+    /**
+     * Ex.: "Você receberá R$ 5,00 de cashback nesta compra". Vem preenchido mesmo quando a compra não gera cashback
+     * (ex.: "R$ 0,00" sem o objetivo de compra ativo); para mostrar o ganho, prefira
+     * [br.com.bonifiq.sdk.api.CheckoutApi.purchaseEarnings].
+     */
     @SerialName("CashbackWillReceiveText") public val willReceiveText: String? = null,
     /** Ex.: "Faltam R$ 10,00 para usar seu cashback". */
     @SerialName("RequiredToAddMoreText") public val requiredToAddMoreText: String? = null,
     @SerialName("MinValueToUse") public val minCartValue: Double? = null,
     @SerialName("RemainingToUse") public val remainingToUse: Double? = null,
     @SerialName("HasProductsIneligibleForCashback") public val hasIneligibleProducts: Boolean = false,
+)
+
+/**
+ * Quanto o cliente ganha ao concluir a compra do carrinho atual (estimativa da BonifiQ). Valores em reais.
+ * É o mesmo cálculo do checkout web da BonifiQ ("Ao concluir essa compra, você ganhará...").
+ */
+@Serializable
+public data class PurchaseEarnings(
+    /** Pontos que a compra gera. */
+    @SerialName("PurchasePoints") public val points: Int = 0,
+    /** Cashback que a compra gera; `null` se o programa não usa cashback. */
+    @SerialName("PurchaseCashback") public val cashback: Double? = null,
+    /** Valor mínimo da compra para ganhar. */
+    @SerialName("MinValueToReceive") public val minCartValue: Double = 0.0,
+    /** A loja tem o objetivo de compra ativo; sem ele, a compra não gera pontos nem cashback. */
+    @SerialName("HasPurchaseObjective") public val hasPurchaseObjective: Boolean = false,
 )
 
 /**

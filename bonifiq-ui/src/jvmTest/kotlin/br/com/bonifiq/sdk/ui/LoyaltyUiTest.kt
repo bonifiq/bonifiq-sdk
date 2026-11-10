@@ -22,10 +22,13 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import br.com.bonifiq.sdk.auth.VtexSessionTokens
+import br.com.bonifiq.sdk.model.PurchaseEarnings
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Testes de UI com screenshots em `bonifiq-ui/build/screenshots` (dados de um servidor fake). */
 @OptIn(ExperimentalTestApi::class)
@@ -62,6 +65,7 @@ class LoyaltyUiTest {
 
         waitForText("Usar R$ 75,00 de cashback")
         waitForText("1.500 Coins")
+        waitForText("Ao concluir essa compra, você ganhará R$\u00A07,50 de cashback")
         snapshot("cashback-01-tudo")
 
         onNodeWithText("Usar R$ 75,00 de cashback").performClick()
@@ -117,6 +121,60 @@ class LoyaltyUiTest {
         onNodeWithText("Usar cashback").assertIsNotEnabled()
         waitForText("Máximo de R$ 75,00")
         assertEquals(0.0, server.appliedCashback, "nada foi aplicado com 0 ou acima do disponível")
+    }
+
+    /** Sem saldo: diz isso e destaca quanto a compra rende, como o checkout web da BonifiQ. */
+    @Test
+    fun cashbackWithoutBalanceHighlightsWhatThePurchaseEarns() = runDesktopComposeUiTest(width = 412, height = 400) {
+        val server = FakeBonifiQServer(balance = 0)
+        server.sdk.auth.loginWithVtex { VtexSessionTokens("s", "g") }
+        setContent { Host { Column(Modifier.padding(16.dp)) { CashbackCheckoutCard(server.sdk, cartId = "of-123", cartTotal = 150.0, onCartChanged = {}) } } }
+
+        waitForText("Você não tem saldo disponível para utilizar no momento.")
+        waitForText("Ao concluir essa compra, você ganhará R$\u00A07,50 de cashback")
+        snapshot("cashback-04-sem-saldo")
+        assertTrue(onAllNodesWithText("Saldo:", substring = true).fetchSemanticsNodes().isEmpty(), "sem saldo, não mostra R$ 0,00")
+        assertTrue(onAllNodesWithText("Usar", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    /** Sem o objetivo de compra, a compra não rende cashback: nada de "você ganhará" nem do "R$ 0,00" da API. */
+    @Test
+    fun cashbackWithoutPurchaseObjectiveShowsNoEarnings() = runDesktopComposeUiTest(width = 412, height = 400) {
+        val server = FakeBonifiQServer(balance = 0)
+        server.purchaseEarnings = """{"MinValueToReceive":1.0,"PurchasePoints":0,"PurchaseCashback":0.0,"HasPurchaseObjective":false}"""
+        server.sdk.auth.loginWithVtex { VtexSessionTokens("s", "g") }
+        setContent { Host { Column(Modifier.padding(16.dp)) { CashbackCheckoutCard(server.sdk, cartId = "of-123", cartTotal = 150.0, onCartChanged = {}) } } }
+
+        waitForText("Você não tem saldo disponível para utilizar no momento.")
+        waitUntil(timeoutMillis = 10_000) { server.purchaseEarningsRequests > 0 }
+        waitForIdle()
+        assertTrue(onAllNodesWithText("ganhará", substring = true).fetchSemanticsNodes().isEmpty())
+        assertTrue(onAllNodesWithText("receberá", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    /** Carrinho com produtos sem direito a cashback: mostra o saldo e o motivo, sem o botão de usar. */
+    @Test
+    fun cashbackWithIneligibleProductsExplainsWhy() = runDesktopComposeUiTest(width = 412, height = 400) {
+        val server = FakeBonifiQServer()
+        server.ineligibleProducts = true
+        server.sdk.auth.loginWithVtex { VtexSessionTokens("s", "g") }
+        setContent { Host { Column(Modifier.padding(16.dp)) { CashbackCheckoutCard(server.sdk, cartId = "of-123", cartTotal = 150.0, onCartChanged = {}) } } }
+
+        waitForText("Saldo: R$ 75,00")
+        waitForText("Os produtos do seu carrinho são inelegíveis para cashback.")
+        assertTrue(onAllNodesWithText("Usar", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun earnedCashbackOnlyWhenThePurchaseEarnsSomething() {
+        val earns = PurchaseEarnings(points = 150, cashback = 7.5, minCartValue = 50.0, hasPurchaseObjective = true)
+        assertEquals(7.5, earnedCashback(earns, cartTotal = 150.0))
+        assertNull(earnedCashback(null, cartTotal = 150.0), "sem a estimativa")
+        assertNull(earnedCashback(earns.copy(hasPurchaseObjective = false), cartTotal = 150.0), "sem objetivo de compra")
+        assertNull(earnedCashback(earns, cartTotal = 30.0), "abaixo do valor mínimo")
+        assertNull(earnedCashback(earns.copy(cashback = 0.0), cartTotal = 150.0), "compra não gera cashback")
+        assertNull(earnedCashback(earns.copy(cashback = 0.004), cartTotal = 150.0), "arredonda para R$ 0,00")
+        assertNull(earnedCashback(earns.copy(cashback = null), cartTotal = 150.0), "programa sem cashback")
     }
 
     @Composable

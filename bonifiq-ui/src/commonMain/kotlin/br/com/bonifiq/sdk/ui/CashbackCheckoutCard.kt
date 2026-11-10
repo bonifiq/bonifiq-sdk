@@ -6,14 +6,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,12 +32,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import br.com.bonifiq.sdk.BonifiQ
 import br.com.bonifiq.sdk.auth.AuthState
 import br.com.bonifiq.sdk.model.CashbackApplication
 import br.com.bonifiq.sdk.model.CashbackOptions
+import br.com.bonifiq.sdk.model.PurchaseEarnings
 import br.com.bonifiq.sdk.ui.internal.attempt
 import br.com.bonifiq.sdk.ui.internal.fill
 import br.com.bonifiq.sdk.ui.internal.formatMoney
@@ -55,6 +63,10 @@ public enum class CashbackAmount {
 /**
  * Bloco de cashback para o checkout: mostra saldo e quanto pode ser usado no carrinho, aplica e remove o cashback.
  * Não aparece se o programa não usa cashback.
+ *
+ * Como no checkout web da BonifiQ, destaca quanto o cliente ganha de cashback ao concluir a compra, inclusive quando
+ * ele ainda não tem saldo para usar. O destaque some se a compra não gera cashback (ex.: sem o objetivo de compra
+ * ativo ou abaixo do valor mínimo).
  *
  * Depois de aplicar ou remover, [onCartChanged] é chamado: recarregue o carrinho da plataforma (o desconto é
  * aplicado pela BonifiQ direto no carrinho). Se a BonifiQ devolver um cupom, ele chega em [onApplyCoupon].
@@ -85,6 +97,7 @@ public fun CashbackCheckoutCard(
         val authenticated = auth is AuthState.Authenticated
 
         var options by remember(cartId) { mutableStateOf<CashbackOptions?>(null) }
+        var earnings by remember(cartId) { mutableStateOf<PurchaseEarnings?>(null) }
         var applied by remember(cartId) { mutableStateOf<CashbackApplication?>(null) }
         var input by remember(cartId) { mutableStateOf("") }
         // O campo acompanha o disponível até o cliente digitar; depois de aplicar ou remover, volta a acompanhar.
@@ -106,6 +119,8 @@ public fun CashbackCheckoutCard(
                 .onFailure { error = it.userMessage }
             // Se a consulta falhar, fica o último estado conhecido: o "Remover" não pode sumir com o cashback aplicado.
             attempt { bonifiq.checkout.appliedCashback(cartId) }.onSuccess { applied = it }
+            // Sem a estimativa, o card não mostra o ganho (nunca um "R$ 0,00").
+            earnings = attempt { bonifiq.checkout.purchaseEarnings(cartId, cartTotal) }.getOrNull()
         }
 
         fun run(action: suspend () -> Unit) {
@@ -176,7 +191,10 @@ public fun CashbackCheckoutCard(
                         ) { Text(strings.cashbackRemove) }
                     }
                     current != null -> {
-                        Text(strings.cashbackBalance.fill(formatMoney(current.balance)), style = MaterialTheme.typography.bodyLarge)
+                        val hasBalance = current.balance > 0
+                        if (hasBalance) {
+                            Text(strings.cashbackBalance.fill(formatMoney(current.balance)), style = MaterialTheme.typography.bodyLarge)
+                        }
                         if (current.canUse && current.usable > 0) {
                             Text(strings.cashbackUsable.fill(formatMoney(current.usable)), style = MaterialTheme.typography.bodyMedium)
                             when (amount) {
@@ -215,18 +233,53 @@ public fun CashbackCheckoutCard(
                                 }
                             }
                         } else {
-                            (current.requiredToAddMoreText ?: current.rules)?.let {
-                                Text(htmlToAnnotatedString(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // Sem cashback para usar nesta compra: os mesmos avisos do checkout web da BonifiQ.
+                            when {
+                                current.hasIneligibleProducts -> Text(strings.cashbackIneligible, style = MaterialTheme.typography.bodyMedium)
+                                !hasBalance -> Text(strings.cashbackNoBalance, style = MaterialTheme.typography.bodyMedium)
+                                else -> (current.requiredToAddMoreText ?: current.rules)?.let {
+                                    Text(htmlToAnnotatedString(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
-                        current.willReceiveText?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        earnedCashback(earnings, cartTotal)?.let {
+                            // Espaço não separável: o "R$" não fica numa linha e o valor na outra.
+                            EarnHighlight(strings.cashbackWillEarn.fill(formatMoney(it).replace(' ', '\u00A0')))
                         }
                     }
                 }
                 message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             }
+        }
+    }
+}
+
+/** Cashback que a compra gera, ou `null` quando não há o que mostrar (como o checkout web da BonifiQ). */
+internal fun earnedCashback(earnings: PurchaseEarnings?, cartTotal: Double): Double? {
+    val cashback = earnings?.cashback ?: return null
+    if (!earnings.hasPurchaseObjective || cartTotal < earnings.minCartValue) return null
+    return cashback.takeIf { round(it * 100) > 0 }
+}
+
+/** Destaque verde do ganho, nas cores do alerta de sucesso do checkout web. */
+@Composable
+private fun EarnHighlight(text: String) {
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    Surface(
+        color = if (dark) Color(0xFF0C130D) else Color(0xFFEDF7ED),
+        contentColor = if (dark) Color(0xFFCCE8CD) else Color(0xFF1E4620),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                tint = if (dark) Color(0xFF66BB6A) else Color(0xFF2E7D32),
+                modifier = Modifier.size(20.dp),
+            )
+            Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 10.dp))
         }
     }
 }
