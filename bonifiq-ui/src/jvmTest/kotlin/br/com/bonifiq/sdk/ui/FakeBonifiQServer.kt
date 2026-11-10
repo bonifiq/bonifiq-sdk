@@ -27,6 +27,11 @@ class FakeBonifiQServer(var balance: Long = 1500, existingCoupons: List<String> 
     )
     private val redeemed = existingCoupons.toMutableList()
     var appliedCashback = 0.0
+    /** Carrinho com produtos sem direito a cashback: o cliente não pode usar o saldo nesta compra. */
+    var ineligibleProducts = false
+    /** Resposta de rewards/checkout/purchase-points (quanto a compra gera); null = 404. */
+    var purchaseEarnings: String? = """{"MinValueToReceive":1.0,"PurchasePoints":150,"PurchaseCashback":7.5,"HasPurchaseObjective":true}"""
+    var purchaseEarningsRequests = 0
     /** Resposta de app/config; null = endpoint ainda não publicado (404). */
     var appConfig: String? = null
     var logins = 0
@@ -62,8 +67,15 @@ class FakeBonifiQServer(var balance: Long = 1500, existingCoupons: List<String> 
                 val total = Json.parseToJsonElement(body).jsonObject["Total"]?.jsonPrimitive?.double ?: 0.0
                 // Como na API: o cashback aplicado sai da carteira e volta quando é removido.
                 val cashback = balance * 0.05 - appliedCashback
-                """{"CashbackBalance":$cashback,"UsableCashback":${min(cashback, total / 2).coerceAtLeast(0.0)},"CanUse":true,
-                    "CashbackRules":"Pague até 50% da compra com cashback.","CashbackWillReceiveText":"Você receberá R$ 6,00 de cashback nesta compra"}"""
+                // Como na API, o texto "você receberá" vem sempre, mesmo quando a compra não gera cashback.
+                """{"CashbackBalance":$cashback,"UsableCashback":${min(cashback, total / 2).coerceAtLeast(0.0)},"CanUse":${!ineligibleProducts},
+                    "HasProductsIneligibleForCashback":$ineligibleProducts,"CashbackRules":"Pague até 50% da compra com cashback.",
+                    "CashbackWillReceiveText":"Você receberá até R$ 0,00 de cashback nessa compra."}"""
+            }
+            "rewards/checkout/purchase-points" -> {
+                purchaseEarningsRequests++
+                purchaseEarnings?.let { env(it) }
+                    ?: return@MockEngine respond("""{"Message":"Not Found"}""", HttpStatusCode.NotFound)
             }
             "rewards/checkout/cashback/redeemed" -> """{"AppliedCashback":$appliedCashback,"Success":${appliedCashback > 0}}"""
             "rewards/checkout/cashback/redeem" -> {

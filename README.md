@@ -116,6 +116,7 @@ func carregarSaldo() async {
 - **Independente de plataforma:** o SDK não chama a VTEX. Ele recebe os tokens da sessão e o `cartId` e devolve cupons. Quem aplica o cupom e recarrega o carrinho é o app.
 - **Cashback:** a BonifiQ aplica o desconto direto no carrinho da plataforma. Depois de `applyCashback` ou `removeCashback`, recarregue o carrinho.
   - O `CashbackCheckoutCard` tem duas versões: `amount = CashbackAmount.All` (padrão) usa todo o disponível num toque; `CashbackAmount.Custom` deixa o cliente digitar o valor, até o disponível.
+  - Como no checkout web da BonifiQ, quando o cliente não tem cashback para usar nesta compra, o card diz quanto a compra rende ("Ao concluir essa compra, você ganhará R$ X de cashback") ou, abaixo do valor mínimo, quanto falta ("Adicione mais R$ X para garantir cashback", com barra de progresso). Nada disso aparece quando a compra não gera cashback (sem o objetivo de compra ativo) nem quando há saldo para usar. Para montar a própria UI, use `checkout.purchaseEarnings(cartId, cartTotal)`.
 - **Erros:** as funções públicas só lançam `BonifiQException` e declaram isso em `@Throws`, para o erro chegar ao Swift em vez de encerrar o app. Falhas do provedor de tokens VTEX e respostas que não são JSON também viram `BonifiQException`.
   - `BonifiQException.Unauthorized`: sem sessão ou token recusado;
   - `Api`: mensagem exibível ao cliente;

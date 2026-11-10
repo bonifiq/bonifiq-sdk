@@ -15,6 +15,7 @@ import br.com.bonifiq.sdk.model.ExpiringPoints
 import br.com.bonifiq.sdk.model.PointsBalanceResponse
 import br.com.bonifiq.sdk.model.PointsHistoryPage
 import br.com.bonifiq.sdk.model.ProgramConfiguration
+import br.com.bonifiq.sdk.model.PurchaseEarnings
 import br.com.bonifiq.sdk.model.RedeemResult
 import br.com.bonifiq.sdk.model.RedeemedReward
 import br.com.bonifiq.sdk.model.Reward
@@ -147,6 +148,18 @@ public class CheckoutApi internal constructor(
         http.send<CashbackRefresh>(HttpMethod.Post, "rewards/checkout/cashback/refresh", AuthMode.Required) {
             jsonBody(buildJsonObject { put("CheckoutId", cartId) })
         }
+
+    /**
+     * Quanto o cliente ganha ao concluir esta compra (pontos e cashback). A BonifiQ lê o carrinho da plataforma;
+     * [cartTotal] (em reais) só é usado se ela não conseguir. Funciona sem login; com cliente logado, considera o nível
+     * dele.
+     */
+    @Throws(BonifiQException::class, CancellationException::class)
+    public suspend fun purchaseEarnings(cartId: String, cartTotal: Double): PurchaseEarnings =
+        http.send<PurchaseEarnings?>(HttpMethod.Get, "rewards/checkout/purchase-points", AuthMode.Optional) {
+            parameter("checkoutCode", cartId)
+            parameter("purchaseValue", cartTotal)
+        } ?: PurchaseEarnings()
 
     /** Remove o cashback do carrinho e devolve o valor à carteira do cliente. */
     @Throws(BonifiQException::class, CancellationException::class)
